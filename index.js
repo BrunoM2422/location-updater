@@ -11,13 +11,13 @@ let accessToken = "";
 
 console.log("🚀 Servidor iniciando...");
 
-// Rota para redirecionar o usuário para o consentimento do Bling
+// Redireciona para o consentimento do Bling
 app.get("/auth", (req, res) => {
   const redirectUrl = `https://www.bling.com.br/Api/v3/oauth/authorize?response_type=code&client_id=${process.env.BLING_CLIENT_ID}&redirect_uri=${process.env.REDIRECT_URI}&scope=produtos_write`;
   res.redirect(redirectUrl);
 });
 
-// Rota de callback - troca o código pelo token
+// Callback - troca o código pelo token
 app.get("/callback", async (req, res) => {
   const { code } = req.query;
 
@@ -55,7 +55,7 @@ app.get("/callback", async (req, res) => {
   }
 });
 
-// Atualizar localização do produto
+// Atualizar localização
 app.post("/atualizar-localizacao", async (req, res) => {
   const { sku, localizacao, depositoId } = req.body;
 
@@ -64,7 +64,7 @@ app.post("/atualizar-localizacao", async (req, res) => {
   }
 
   try {
-    const resposta = await axios.patch(
+    await axios.patch(
       `https://www.bling.com.br/Api/v3/produtos/${sku}`,
       {
         depositos: [{ id: depositoId, localizacao }],
@@ -72,4 +72,17 @@ app.post("/atualizar-localizacao", async (req, res) => {
       {
         headers: {
           Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    res.json({ mensagem: "Localização atualizada com sucesso!" });
+  } catch (erro) {
+    console.error("❌ Erro ao atualizar:", erro.response?.data || erro.message);
+    res.status(500).json({ mensagem: "Erro ao atualizar localização." });
+  }
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`✅ Servidor rodando na porta ${PORT}`));
