@@ -13,7 +13,8 @@ console.log("🚀 Servidor iniciando...");
 
 // Redireciona para o consentimento do Bling
 app.get("/auth", (req, res) => {
-  const redirectUrl = `https://www.bling.com.br/Api/v3/oauth/authorize?response_type=code&client_id=${process.env.BLING_CLIENT_ID}&redirect_uri=${process.env.REDIRECT_URI}&scope=produtos_write`;
+  const state = Math.random().toString(36).substring(2); // Gera um state aleatório
+  const redirectUrl = `https://www.bling.com.br/Api/v3/oauth/authorize?response_type=code&client_id=${process.env.BLING_CLIENT_ID}&redirect_uri=${process.env.REDIRECT_URI}&scope=produtos_write&state=${state}`;
   res.redirect(redirectUrl);
 });
 
