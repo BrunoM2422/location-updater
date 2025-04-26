@@ -85,5 +85,29 @@ app.post("/atualizar-localizacao", async (req, res) => {
   }
 });
 
+// Nova rota para buscar produto
+// Nova rota para buscar produto
+app.get("/buscar-produto/:sku", async (req, res) => {
+  const { sku } = req.params;
+
+  if (!accessToken) {
+    return res.status(403).json({ mensagem: "Token de acesso não encontrado. Faça login via /auth." });
+  }
+
+  try {
+    const resposta = await axios.get(`https://www.bling.com.br/Api/v3/produtos/${sku}`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    res.json(resposta.data);
+  } catch (erro) {
+    console.error("❌ Erro ao buscar produto:", erro.response?.data || erro.message);
+    res.status(500).json({ mensagem: "Erro ao buscar produto." });
+  }
+});
+
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`✅ Servidor rodando na porta ${PORT}`));
