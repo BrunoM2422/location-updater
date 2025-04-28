@@ -107,8 +107,14 @@ app.post("/atualizar-localizacao", async (req, res) => {
 
   } catch (erro) {
     console.error("❌ Erro ao atualizar localização:", erro.response?.data || erro.message);
+  
+    if (erro.response?.data?.error?.fields) {
+      console.error("🔎 Erros detalhados:", JSON.stringify(erro.response.data.error.fields, null, 2));
+    }
+  
     res.status(500).json({ mensagem: "Erro ao atualizar localização." });
   }
+  
 });
 
 
