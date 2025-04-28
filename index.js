@@ -80,19 +80,12 @@ app.post("/atualizar-localizacao", async (req, res) => {
 
     // 2 - Montar o novo objeto
     const produtoAtualizado = {
-      nome: produtoAtual.nome || "Produto sem nome",
-      preco: produtoAtual.preco || 0,
-      unidade: produtoAtual.unidade || "un",
-      tipo: produtoAtual.tipo || "P", // Produto
-      situacao: produtoAtual.situacao || "A", // Ativo
-      codigo: produtoAtual.codigo || "000000",
-      descricao: produtoAtual.descricao || "Sem descrição",
-      estoque: produtoAtual.estoque || 0,
-      localizacao: localizacao, // Atualizando aqui
+      localizacao: localizacao, // Atualizando apenas localização
+      formato: produtoAtual.formato || "S", // <-- Agora adiciona formato obrigatório
     };
 
-    // 3 - Atualizar
-    await axios.put(
+    // 3 - Atualizar usando PATCH (não precisa mandar o produto inteiro, só o que muda!)
+    await axios.patch(
       `https://www.bling.com.br/Api/v3/produtos/${produtoId}`,
       produtoAtualizado,
       {
@@ -114,9 +107,7 @@ app.post("/atualizar-localizacao", async (req, res) => {
   
     res.status(500).json({ mensagem: "Erro ao atualizar localização." });
   }
-  
 });
-
 
 // Buscar produto pelo SKU
 app.get("/buscar-produto/:sku", async (req, res) => {
