@@ -57,10 +57,9 @@ app.get("/callback", async (req, res) => {
   }
 });
 
-// Atualizar localização
-// Atualizar localização
+// Atualizar localização do produto
 app.post("/atualizar-localizacao", async (req, res) => {
-  const { produtoId, localizacao, depositoId } = req.body; // <-- agora é produtoId
+  const { produtoId, localizacao } = req.body; // apenas produtoId e localizacao agora
 
   if (!accessToken) {
     return res.status(403).json({ mensagem: "Token de acesso não encontrado. Faça login via /auth." });
@@ -68,9 +67,9 @@ app.post("/atualizar-localizacao", async (req, res) => {
 
   try {
     await axios.patch(
-      `https://www.bling.com.br/Api/v3/produtos/${produtoId}`, // <-- usa produtoId aqui
+      `https://www.bling.com.br/Api/v3/produtos/${produtoId}`, 
       {
-        depositos: [{ id: depositoId, localizacao }],
+        localizacao: localizacao, // atualiza direto o campo localizacao
       },
       {
         headers: {
@@ -87,8 +86,7 @@ app.post("/atualizar-localizacao", async (req, res) => {
   }
 });
 
-
-// Buscar produto (com SKU no parâmetro)
+// Buscar produto pelo SKU
 app.get("/buscar-produto/:sku", async (req, res) => {
   const { sku } = req.params;
 
@@ -103,7 +101,7 @@ app.get("/buscar-produto/:sku", async (req, res) => {
       },
     });
 
-    const produto = resposta.data?.data?.[0]; // Primeiro da lista
+    const produto = resposta.data?.data?.[0];
     if (!produto) throw new Error("Produto não encontrado.");
 
     res.json({ retorno: { produto } });
