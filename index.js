@@ -13,12 +13,12 @@ console.log("🚀 Servidor iniciando...");
 
 // Redireciona para o consentimento do Bling
 app.get("/auth", (req, res) => {
-  const state = Math.random().toString(36).substring(2); // Gera um state aleatório
+  const state = Math.random().toString(36).substring(2);
   const redirectUrl = `https://www.bling.com.br/Api/v3/oauth/authorize?response_type=code&client_id=${process.env.BLING_CLIENT_ID}&redirect_uri=${process.env.REDIRECT_URI}&scope=produtos_write&state=${state}`;
   res.redirect(redirectUrl);
 });
 
-// Callback - troca o código pelo token
+// Callback - troca o código pelo token e redireciona para o site de atualização
 app.get("/callback", async (req, res) => {
   const { code } = req.query;
 
@@ -49,7 +49,8 @@ app.get("/callback", async (req, res) => {
     accessToken = resposta.data.access_token;
     console.log("✅ Token recebido:", resposta.data);
 
-    res.send("Autenticação concluída com sucesso!");
+    // Redireciona para o site de atualização
+    res.redirect("https://atualizador-site.vercel.app/");
   } catch (erro) {
     console.error("❌ Erro ao obter token:", erro.response?.data || erro.message);
     res.status(500).send("Erro ao autenticar.");
@@ -85,8 +86,7 @@ app.post("/atualizar-localizacao", async (req, res) => {
   }
 });
 
-// Nova rota para buscar produto
-// Nova rota para buscar produto
+// Buscar produto (com SKU no parâmetro)
 app.get("/buscar-produto/:sku", async (req, res) => {
   const { sku } = req.params;
 
@@ -95,19 +95,21 @@ app.get("/buscar-produto/:sku", async (req, res) => {
   }
 
   try {
-    const resposta = await axios.get(`https://www.bling.com.br/Api/v3/produtos/${sku}`, {
+    const resposta = await axios.get(`https://www.bling.com.br/Api/v3/produtos?sku=${sku}`, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
     });
 
-    res.json(resposta.data);
+    const produto = resposta.data?.data?.[0]; // Primeiro da lista
+    if (!produto) throw new Error("Produto não encontrado.");
+
+    res.json({ retorno: { produto } });
   } catch (erro) {
     console.error("❌ Erro ao buscar produto:", erro.response?.data || erro.message);
     res.status(500).json({ mensagem: "Erro ao buscar produto." });
   }
 });
-
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`✅ Servidor rodando na porta ${PORT}`));
