@@ -18,7 +18,7 @@ app.get("/auth", (req, res) => {
   res.redirect(redirectUrl);
 });
 
-// Callback - troca o código pelo token e redireciona para o site de atualização
+// Callback - troca o código pelo token
 app.get("/callback", async (req, res) => {
   const { code } = req.query;
 
@@ -49,7 +49,6 @@ app.get("/callback", async (req, res) => {
     accessToken = resposta.data.access_token;
     console.log("✅ Token recebido:", resposta.data);
 
-    // Redireciona para o site de atualização
     res.redirect("https://atualizador-site.vercel.app/");
   } catch (erro) {
     console.error("❌ Erro ao obter token:", erro.response?.data || erro.message);
@@ -59,18 +58,42 @@ app.get("/callback", async (req, res) => {
 
 // Atualizar localização do produto
 app.post("/atualizar-localizacao", async (req, res) => {
-  const { produtoId, localizacao } = req.body; // apenas produtoId e localizacao agora
+  const { produtoId, localizacao } = req.body;
 
   if (!accessToken) {
     return res.status(403).json({ mensagem: "Token de acesso não encontrado. Faça login via /auth." });
   }
 
   try {
-    await axios.patch(
-      `https://www.bling.com.br/Api/v3/produtos/${produtoId}`, 
-      {
-        localizacao: localizacao, // atualiza direto o campo localizacao
+    // Primeiro busca o produto atual para manter os dados que não serão alterados
+    const respostaBusca = await axios.get(`https://www.bling.com.br/Api/v3/produtos/${produtoId}`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
       },
+    });
+
+    const produtoAtual = respostaBusca.data?.data;
+
+    if (!produtoAtual) {
+      return res.status(404).json({ mensagem: "Produto não encontrado para atualização." });
+    }
+
+    // Atualiza apenas o campo de localização
+    const produtoAtualizado = {
+      nome: produtoAtual.nome,
+      preco: produtoAtual.preco,
+      unidade: produtoAtual.unidade,
+      localizacao: localizacao,
+      situacao: produtoAtual.situacao,
+      tipo: produtoAtual.tipo,
+      descricao: produtoAtual.descricao,
+      codigo: produtoAtual.codigo,
+      estoque: produtoAtual.estoque,
+    };
+
+    await axios.put(
+      `https://www.bling.com.br/Api/v3/produtos/${produtoId}`,
+      produtoAtualizado,
       {
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -81,7 +104,7 @@ app.post("/atualizar-localizacao", async (req, res) => {
 
     res.json({ mensagem: "Localização atualizada com sucesso!" });
   } catch (erro) {
-    console.error("❌ Erro ao atualizar:", erro.response?.data || erro.message);
+    console.error("❌ Erro ao atualizar localização:", erro.response?.data || erro.message);
     res.status(500).json({ mensagem: "Erro ao atualizar localização." });
   }
 });
