@@ -60,7 +60,7 @@ app.get("/callback", async (req, res) => {
 // Atualizar localização do produto
 // Atualizar localização do produto
 app.post("/atualizar-localizacao", async (req, res) => {
-  const { produtoId, localizacao } = req.body;
+  const { produtoId, localizacao, depositoId } = req.body; // agora precisamos do depositoId também!
 
   if (!accessToken) {
     return res.status(403).json({ mensagem: "Token de acesso não encontrado. Faça login via /auth." });
@@ -80,13 +80,30 @@ app.post("/atualizar-localizacao", async (req, res) => {
       return res.status(404).json({ mensagem: "Produto não encontrado para atualização." });
     }
 
-    // 2 - Determinar tipo corretamente
-    let tipoProduto = produtoAtual.tipo;
-    if (!["P", "S", "N"].includes(tipoProduto)) {
-      tipoProduto = "P"; // Define como Produto se não for válido
+    // 2 - Ajustar depósitos
+    let depositos = produtoAtual.depositos || [];
+
+    // Verifica se já existe o depósito informado
+    const depositoIndex = depositos.findIndex(dep => dep.depositoId == depositoId);
+
+    if (depositoIndex >= 0) {
+      // Atualiza a localização existente
+      depositos[depositoIndex].localizacao = localizacao;
+    } else {
+      // Caso não exista o depósito, cria
+      depositos.push({
+        depositoId: parseInt(depositoId),
+        localizacao: localizacao,
+        quantidade: 0
+      });
     }
 
-    // 3 - Montar o novo objeto para atualização
+    // 3 - Preparar o objeto atualizado
+    let tipoProduto = produtoAtual.tipo;
+    if (!["P", "S", "N"].includes(tipoProduto)) {
+      tipoProduto = "P";
+    }
+
     const produtoAtualizado = {
       nome: produtoAtual.nome || "Produto sem nome",
       codigo: produtoAtual.codigo,
@@ -96,8 +113,8 @@ app.post("/atualizar-localizacao", async (req, res) => {
       descricao: produtoAtual.descricao || "",
       estoque: produtoAtual.estoque || 0,
       formato: produtoAtual.formato || "S",
-      tipo: tipoProduto, // <-- Tipo corrigido
-      localizacao: localizacao, // Atualizando aqui
+      tipo: tipoProduto,
+      depositos: depositos, // <-- Agora mandamos os depósitos atualizados
     };
 
     // 4 - Atualizar usando PUT
@@ -116,11 +133,11 @@ app.post("/atualizar-localizacao", async (req, res) => {
 
   } catch (erro) {
     console.error("❌ Erro ao atualizar localização:", erro.response?.data || erro.message);
-  
+
     if (erro.response?.data?.error?.fields) {
       console.error("🔎 Erros detalhados:", JSON.stringify(erro.response.data.error.fields, null, 2));
     }
-  
+
     res.status(500).json({ mensagem: "Erro ao atualizar localização." });
   }
 });
