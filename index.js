@@ -58,6 +58,7 @@ app.get("/callback", async (req, res) => {
 
 // Atualizar localização do produto
 // Atualizar localização do produto
+// Atualizar localização do produto
 app.post("/atualizar-localizacao", async (req, res) => {
   const { produtoId, localizacao } = req.body;
 
@@ -79,7 +80,13 @@ app.post("/atualizar-localizacao", async (req, res) => {
       return res.status(404).json({ mensagem: "Produto não encontrado para atualização." });
     }
 
-    // 2 - Montar o novo objeto
+    // 2 - Determinar tipo corretamente
+    let tipoProduto = produtoAtual.tipo;
+    if (!["P", "S", "N"].includes(tipoProduto)) {
+      tipoProduto = "P"; // Define como Produto se não for válido
+    }
+
+    // 3 - Montar o novo objeto para atualização
     const produtoAtualizado = {
       nome: produtoAtual.nome || "Produto sem nome",
       codigo: produtoAtual.codigo,
@@ -89,10 +96,11 @@ app.post("/atualizar-localizacao", async (req, res) => {
       descricao: produtoAtual.descricao || "",
       estoque: produtoAtual.estoque || 0,
       formato: produtoAtual.formato || "S",
-      localizacao: localizacao, // <-- Atualiza a localização aqui
+      tipo: tipoProduto, // <-- Tipo corrigido
+      localizacao: localizacao, // Atualizando aqui
     };
 
-    // 3 - Atualizar com PUT (produto completo)
+    // 4 - Atualizar usando PUT
     await axios.put(
       `https://www.bling.com.br/Api/v3/produtos/${produtoId}`,
       produtoAtualizado,
@@ -116,6 +124,7 @@ app.post("/atualizar-localizacao", async (req, res) => {
     res.status(500).json({ mensagem: "Erro ao atualizar localização." });
   }
 });
+
 
 
 // Buscar produto pelo SKU
