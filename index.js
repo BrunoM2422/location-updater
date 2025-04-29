@@ -160,14 +160,30 @@ app.get("/buscar-produto/:sku", async (req, res) => {
     });
 
     const produto = resposta.data?.data?.[0];
-    if (!produto) throw new Error("Produto não encontrado.");
 
-    res.json({ retorno: { produto } });
+    if (!produto) {
+      return res.status(404).json({ mensagem: "Produto não encontrado." });
+    }
+
+    // Extrair os dados principais
+    const produtoFormatado = {
+      id: produto.id,
+      nome: produto.nome || "Sem nome",
+      preco: produto.preco || produto.precoVenda || "0",
+      imagem: produto.imagem?.link || null,
+      unidade: produto.unidade || "un",
+      localizacao: produto.depositos?.[0]?.localizacao || "Não informada",
+      estoque: produto.depositos?.[0]?.quantidade || 0,
+    };
+
+    res.json({ retorno: { produto: produtoFormatado } });
+
   } catch (erro) {
     console.error("❌ Erro ao buscar produto:", erro.response?.data || erro.message);
     res.status(500).json({ mensagem: "Erro ao buscar produto." });
   }
 });
+
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`✅ Servidor rodando na porta ${PORT}`));
