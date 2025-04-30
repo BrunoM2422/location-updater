@@ -1,3 +1,4 @@
+// index.js
 const express = require("express");
 const axios = require("axios");
 const cors = require("cors");
@@ -11,14 +12,12 @@ let accessToken = "";
 
 console.log("🚀 Servidor iniciando...");
 
-// Redireciona para o consentimento do Bling
 app.get("/auth", (req, res) => {
   const state = Math.random().toString(36).substring(2);
   const redirectUrl = `https://www.bling.com.br/Api/v3/oauth/authorize?response_type=code&client_id=${process.env.BLING_CLIENT_ID}&redirect_uri=${process.env.REDIRECT_URI}&scope=produtos_write&state=${state}`;
   res.redirect(redirectUrl);
 });
 
-// Callback - troca o código pelo token
 app.get("/callback", async (req, res) => {
   const { code } = req.query;
 
@@ -44,7 +43,6 @@ app.get("/callback", async (req, res) => {
 
     accessToken = resposta.data.access_token;
     console.log("✅ Token recebido:", resposta.data);
-
     res.redirect("https://atualizador-site.vercel.app/");
   } catch (erro) {
     console.error("❌ Erro ao obter token:", erro.response?.data || erro.message);
@@ -52,7 +50,6 @@ app.get("/callback", async (req, res) => {
   }
 });
 
-// Buscar produto pelo SKU
 app.get("/buscar-produto/:sku", async (req, res) => {
   const { sku } = req.params;
 
@@ -62,9 +59,7 @@ app.get("/buscar-produto/:sku", async (req, res) => {
 
   try {
     const resposta = await axios.get(`https://www.bling.com.br/Api/v3/produtos?sku=${sku}&completo=true`, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
+      headers: { Authorization: `Bearer ${accessToken}` },
     });
 
     const produto = resposta.data?.data?.[0];
@@ -79,7 +74,7 @@ app.get("/buscar-produto/:sku", async (req, res) => {
       preco: produto.preco || produto.precoVenda || "0",
       imagem: produto.imagem?.link || null,
       localizacao: produto.localizacao || "Não informada",
-      estoque: produto.estoque || 0
+      estoque: produto.estoque || 0,
     };
 
     res.json({ retorno: { produto: produtoFormatado } });
@@ -90,8 +85,6 @@ app.get("/buscar-produto/:sku", async (req, res) => {
   }
 });
 
-
-// Atualizar localização do produto
 app.post("/atualizar-localizacao", async (req, res) => {
   const { produtoId, localizacao } = req.body;
 
@@ -101,9 +94,7 @@ app.post("/atualizar-localizacao", async (req, res) => {
 
   try {
     const respostaBusca = await axios.get(`https://www.bling.com.br/Api/v3/produtos/${produtoId}`, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
+      headers: { Authorization: `Bearer ${accessToken}` },
     });
 
     const produtoAtual = respostaBusca.data?.data;
@@ -122,7 +113,7 @@ app.post("/atualizar-localizacao", async (req, res) => {
       estoque: produtoAtual.estoque || 0,
       formato: produtoAtual.formato || "S",
       tipo: produtoAtual.tipo || "P",
-      localizacao
+      localizacao: localizacao,
     };
 
     await axios.put(`https://www.bling.com.br/Api/v3/produtos/${produtoId}`, produtoAtualizado, {
