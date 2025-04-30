@@ -73,18 +73,13 @@ app.get("/buscar-produto/:sku", async (req, res) => {
       return res.status(404).json({ mensagem: "Produto não encontrado." });
     }
 
-    const deposito = produto.depositos?.[0] || {};
-
     const produtoFormatado = {
       id: produto.id,
       nome: produto.nome || "Sem nome",
       preco: produto.preco || produto.precoVenda || "0",
       imagem: produto.imagem?.link || null,
-      unidade: produto.unidade || "un",
-      localizacao: deposito.localizacao || "Não informada",
-      estoque: deposito.quantidade || 0,
-      depositoId: deposito.depositoId || 1  // define 1 como ID do depósito padrão
-
+      localizacao: produto.localizacao || "Não informada",
+      estoque: produto.estoque || 0
     };
 
     res.json({ retorno: { produto: produtoFormatado } });
@@ -95,9 +90,10 @@ app.get("/buscar-produto/:sku", async (req, res) => {
   }
 });
 
+
 // Atualizar localização do produto
 app.post("/atualizar-localizacao", async (req, res) => {
-  const { produtoId, localizacao, depositoId } = req.body;
+  const { produtoId, localizacao } = req.body;
 
   if (!accessToken) {
     return res.status(403).json({ mensagem: "Token de acesso não encontrado. Faça login via /auth." });
@@ -116,24 +112,6 @@ app.post("/atualizar-localizacao", async (req, res) => {
       return res.status(404).json({ mensagem: "Produto não encontrado." });
     }
 
-    let depositos = produtoAtual.depositos || [];
-
-    let novoDepositoId = depositoId;
-
-if (!novoDepositoId) {
-  // Se não veio nenhum, usamos o ID do depósito padrão (ex: 1) — ajuste conforme seu Bling
-  novoDepositoId = 1;
-}
-
-const index = depositos.findIndex(d => d.depositoId == novoDepositoId);
-
-if (index >= 0) {
-  depositos[index].localizacao = localizacao;
-} else {
-  depositos.push({ depositoId: parseInt(novoDepositoId), localizacao, quantidade: 0 });
-}
-
-
     const produtoAtualizado = {
       nome: produtoAtual.nome,
       codigo: produtoAtual.codigo,
@@ -144,7 +122,7 @@ if (index >= 0) {
       estoque: produtoAtual.estoque || 0,
       formato: produtoAtual.formato || "S",
       tipo: produtoAtual.tipo || "P",
-      depositos
+      localizacao
     };
 
     await axios.put(`https://www.bling.com.br/Api/v3/produtos/${produtoId}`, produtoAtualizado, {
