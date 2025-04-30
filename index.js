@@ -22,11 +22,7 @@ app.get("/auth", (req, res) => {
 app.get("/callback", async (req, res) => {
   const { code } = req.query;
 
-  if (!code) {
-    return res.status(400).send("Código de autorização ausente.");
-  }
-
-  console.log("✔️ Código de autorização recebido:", code);
+  if (!code) return res.status(400).send("Código de autorização ausente.");
 
   const basicAuth = Buffer.from(`${process.env.BLING_CLIENT_ID}:${process.env.BLING_CLIENT_SECRET}`).toString("base64");
 
@@ -56,94 +52,6 @@ app.get("/callback", async (req, res) => {
   }
 });
 
-// Atualizar localização do produto
-// Atualizar localização do produto
-// Atualizar localização do produto
-app.post("/atualizar-localizacao", async (req, res) => {
-  const { produtoId, localizacao, depositoId } = req.body; // agora precisamos do depositoId também!
-
-  if (!accessToken) {
-    return res.status(403).json({ mensagem: "Token de acesso não encontrado. Faça login via /auth." });
-  }
-
-  try {
-    // 1 - Buscar o produto atual
-    const respostaBusca = await axios.get(`https://www.bling.com.br/Api/v3/produtos/${produtoId}`, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    });
-
-    const produtoAtual = respostaBusca.data?.data;
-
-    if (!produtoAtual) {
-      return res.status(404).json({ mensagem: "Produto não encontrado para atualização." });
-    }
-
-    // 2 - Ajustar depósitos
-    let depositos = produtoAtual.depositos || [];
-
-    // Verifica se já existe o depósito informado
-    const depositoIndex = depositos.findIndex(dep => dep.depositoId == depositoId);
-
-    if (depositoIndex >= 0) {
-      // Atualiza a localização existente
-      depositos[depositoIndex].localizacao = localizacao;
-    } else {
-      // Caso não exista o depósito, cria
-      depositos.push({
-        depositoId: parseInt(depositoId),
-        localizacao: localizacao,
-        quantidade: 0
-      });
-    }
-
-    // 3 - Preparar o objeto atualizado
-    let tipoProduto = produtoAtual.tipo;
-    if (!["P", "S", "N"].includes(tipoProduto)) {
-      tipoProduto = "P";
-    }
-
-    const produtoAtualizado = {
-      nome: produtoAtual.nome || "Produto sem nome",
-      codigo: produtoAtual.codigo,
-      preco: produtoAtual.preco,
-      unidade: produtoAtual.unidade || "un",
-      situacao: produtoAtual.situacao || "A",
-      descricao: produtoAtual.descricao || "",
-      estoque: produtoAtual.estoque || 0,
-      formato: produtoAtual.formato || "S",
-      tipo: tipoProduto,
-      depositos: depositos, // <-- Agora mandamos os depósitos atualizados
-    };
-
-    // 4 - Atualizar usando PUT
-    await axios.put(
-      `https://www.bling.com.br/Api/v3/produtos/${produtoId}`,
-      produtoAtualizado,
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-      }
-    );
-
-    res.json({ mensagem: "Localização atualizada com sucesso!" });
-
-  } catch (erro) {
-    console.error("❌ Erro ao atualizar localização:", erro.response?.data || erro.message);
-
-    if (erro.response?.data?.error?.fields) {
-      console.error("🔎 Erros detalhados:", JSON.stringify(erro.response.data.error.fields, null, 2));
-    }
-
-    res.status(500).json({ mensagem: "Erro ao atualizar localização." });
-  }
-});
-
-
-
 // Buscar produto pelo SKU
 app.get("/buscar-produto/:sku", async (req, res) => {
   const { sku } = req.params;
@@ -153,7 +61,7 @@ app.get("/buscar-produto/:sku", async (req, res) => {
   }
 
   try {
-    const resposta = await axios.get(`https://www.bling.com.br/Api/v3/produtos?sku=${sku}`, {
+    const resposta = await axios.get(`https://www.bling.com.br/Api/v3/produtos?sku=${sku}&completo=true`, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
@@ -165,15 +73,17 @@ app.get("/buscar-produto/:sku", async (req, res) => {
       return res.status(404).json({ mensagem: "Produto não encontrado." });
     }
 
-    // Extrair os dados principais
+    const deposito = produto.depositos?.[0] || {};
+
     const produtoFormatado = {
       id: produto.id,
       nome: produto.nome || "Sem nome",
       preco: produto.preco || produto.precoVenda || "0",
       imagem: produto.imagem?.link || null,
       unidade: produto.unidade || "un",
-      localizacao: produto.depositos?.[0]?.localizacao || "Não informada",
-      estoque: produto.depositos?.[0]?.quantidade || 0,
+      localizacao: deposito.localizacao || "Não informada",
+      estoque: deposito.quantidade || 0,
+      depositoId: deposito.depositoId || null
     };
 
     res.json({ retorno: { produto: produtoFormatado } });
@@ -184,6 +94,64 @@ app.get("/buscar-produto/:sku", async (req, res) => {
   }
 });
 
+// Atualizar localização do produto
+app.post("/atualizar-localizacao", async (req, res) => {
+  const { produtoId, localizacao, depositoId } = req.body;
+
+  if (!accessToken) {
+    return res.status(403).json({ mensagem: "Token de acesso não encontrado. Faça login via /auth." });
+  }
+
+  try {
+    const respostaBusca = await axios.get(`https://www.bling.com.br/Api/v3/produtos/${produtoId}`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    const produtoAtual = respostaBusca.data?.data;
+
+    if (!produtoAtual) {
+      return res.status(404).json({ mensagem: "Produto não encontrado." });
+    }
+
+    let depositos = produtoAtual.depositos || [];
+
+    const index = depositos.findIndex(d => d.depositoId == depositoId);
+
+    if (index >= 0) {
+      depositos[index].localizacao = localizacao;
+    } else {
+      depositos.push({ depositoId: parseInt(depositoId), localizacao, quantidade: 0 });
+    }
+
+    const produtoAtualizado = {
+      nome: produtoAtual.nome,
+      codigo: produtoAtual.codigo,
+      preco: produtoAtual.preco,
+      unidade: produtoAtual.unidade,
+      situacao: produtoAtual.situacao,
+      descricao: produtoAtual.descricao || "",
+      estoque: produtoAtual.estoque || 0,
+      formato: produtoAtual.formato || "S",
+      tipo: produtoAtual.tipo || "P",
+      depositos
+    };
+
+    await axios.put(`https://www.bling.com.br/Api/v3/produtos/${produtoId}`, produtoAtualizado, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    res.json({ mensagem: "Localização atualizada com sucesso!" });
+
+  } catch (erro) {
+    console.error("❌ Erro ao atualizar localização:", erro.response?.data || erro.message);
+    res.status(500).json({ mensagem: "Erro ao atualizar localização." });
+  }
+});
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`✅ Servidor rodando na porta ${PORT}`));
