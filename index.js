@@ -83,7 +83,8 @@ app.get("/buscar-produto/:sku", async (req, res) => {
       unidade: produto.unidade || "un",
       localizacao: deposito.localizacao || "Não informada",
       estoque: deposito.quantidade || 0,
-      depositoId: deposito.depositoId || null
+      depositoId: deposito.depositoId || 1  // define 1 como ID do depósito padrão
+
     };
 
     res.json({ retorno: { produto: produtoFormatado } });
@@ -117,13 +118,21 @@ app.post("/atualizar-localizacao", async (req, res) => {
 
     let depositos = produtoAtual.depositos || [];
 
-    const index = depositos.findIndex(d => d.depositoId == depositoId);
+    let novoDepositoId = depositoId;
 
-    if (index >= 0) {
-      depositos[index].localizacao = localizacao;
-    } else {
-      depositos.push({ depositoId: parseInt(depositoId), localizacao, quantidade: 0 });
-    }
+if (!novoDepositoId) {
+  // Se não veio nenhum, usamos o ID do depósito padrão (ex: 1) — ajuste conforme seu Bling
+  novoDepositoId = 1;
+}
+
+const index = depositos.findIndex(d => d.depositoId == novoDepositoId);
+
+if (index >= 0) {
+  depositos[index].localizacao = localizacao;
+} else {
+  depositos.push({ depositoId: parseInt(novoDepositoId), localizacao, quantidade: 0 });
+}
+
 
     const produtoAtualizado = {
       nome: produtoAtual.nome,
