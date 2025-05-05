@@ -76,14 +76,14 @@ app.get("/buscar-produto/:sku", async (req, res) => {
   }
 });
 
-app.post("/atualizar-preco", async (req, res) => {
-  const { produtoId, preco } = req.body;
+app.post("/atualizar-localizacao", async (req, res) => {
+  const { produtoId, localizacao } = req.body;
 
   if (!accessToken) {
     return res.status(403).json({ mensagem: "Token de acesso não encontrado. Faça login via /auth." });
   }
 
-  if (!produtoId || typeof preco !== "number" || preco <= 0) {
+  if (!produtoId || typeof localizacao !== "string") {
     return res.status(400).json({ mensagem: "Dados inválidos para atualização." });
   }
 
@@ -103,10 +103,13 @@ app.post("/atualizar-preco", async (req, res) => {
     const produtoAtualizado = {
       nome: produtoAtual.nome,
       codigo: produtoAtual.codigo,
-      preco: preco,
+      preco: produtoAtual.preco,
       unidade: produtoAtual.unidade,
       formato: produtoAtual.formato,
       tipo: produtoAtual.tipo,
+      estoque: {
+        localizacao: localizacao
+      }
     };
 
     await axios.put(
@@ -120,12 +123,13 @@ app.post("/atualizar-preco", async (req, res) => {
       }
     );
 
-    res.json({ mensagem: "Preço atualizado com sucesso!" });
+    res.json({ mensagem: "Localização atualizada com sucesso!" });
   } catch (erro) {
-    console.error("❌ Erro ao atualizar preço:", erro.response?.data || erro.message);
-    res.status(500).json({ mensagem: "Erro ao atualizar preço." });
+    console.error("❌ Erro ao atualizar localização:", erro.response?.data || erro.message);
+    res.status(500).json({ mensagem: "Erro ao atualizar localização." });
   }
 });
+
 
 
 const PORT = process.env.PORT || 3000;
