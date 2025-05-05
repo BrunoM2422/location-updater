@@ -74,9 +74,10 @@ app.get("/buscar-produto/:sku", async (req, res) => {
         id: produto.id,
         nome: produto.nome,
         localizacao: produto.localizacao || "",
-        estoque: produto.estoque || 0
+        estoque: produto.estoque?.estoque || 0
       }
     };
+    
 
     res.json({ retorno });
   } catch (erro) {
