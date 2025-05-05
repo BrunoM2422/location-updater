@@ -69,17 +69,15 @@ app.get("/buscar-produto/:sku", async (req, res) => {
     const produto = resposta.data?.data?.[0];
     if (!produto) throw new Error("Produto não encontrado.");
 
-    const localizacao = produto.depositos?.[0]?.localizacao || "Não informada";
-
-    res.json({ retorno: { produto, localizacao } });
+    res.json({ retorno: { produto, preco: produto.preco } });
   } catch (erro) {
     console.error("❌ Erro ao buscar produto:", erro.response?.data || erro.message);
     res.status(500).json({ mensagem: "Erro ao buscar produto." });
   }
 });
 
-app.post("/atualizar-localizacao", async (req, res) => {
-  const { produtoId, localizacao } = req.body;
+app.post("/atualizar-preco", async (req, res) => {
+  const { produtoId, preco } = req.body;
 
   if (!accessToken) {
     return res.status(403).json({ mensagem: "Token de acesso não encontrado. Faça login via /auth." });
@@ -98,26 +96,16 @@ app.post("/atualizar-localizacao", async (req, res) => {
       return res.status(404).json({ mensagem: "Produto não encontrado." });
     }
 
-    const depositosAtualizados = produtoAtual.depositos?.map((dep, index) => ({
-      ...dep,
-      localizacao: index === 0 ? localizacao : dep.localizacao,
-    })) || [{
-      depositoId: 1,
-      localizacao: localizacao,
-      saldo: 0
-    }];
-
     const produtoAtualizado = {
       nome: produtoAtual.nome || "Produto sem nome",
       codigo: produtoAtual.codigo,
-      preco: produtoAtual.preco,
+      preco: preco,
       unidade: produtoAtual.unidade || "un",
       situacao: produtoAtual.situacao || "A",
       descricao: produtoAtual.descricao || "",
       estoque: produtoAtual.estoque || 0,
       formato: produtoAtual.formato || "S",
-      tipo: produtoAtual.tipo || "P",
-      depositos: depositosAtualizados,
+      tipo: produtoAtual.tipo || "P"
     };
 
     await axios.put(
@@ -131,10 +119,10 @@ app.post("/atualizar-localizacao", async (req, res) => {
       }
     );
 
-    res.json({ mensagem: "Localização atualizada com sucesso!" });
+    res.json({ mensagem: "Preço atualizado com sucesso!" });
   } catch (erro) {
-    console.error("❌ Erro ao atualizar localização:", erro.response?.data || erro.message);
-    res.status(500).json({ mensagem: "Erro ao atualizar localização." });
+    console.error("❌ Erro ao atualizar preço:", erro.response?.data || erro.message);
+    res.status(500).json({ mensagem: "Erro ao atualizar preço." });
   }
 });
 
