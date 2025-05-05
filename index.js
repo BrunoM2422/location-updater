@@ -83,6 +83,10 @@ app.post("/atualizar-preco", async (req, res) => {
     return res.status(403).json({ mensagem: "Token de acesso não encontrado. Faça login via /auth." });
   }
 
+  if (!produtoId || typeof preco !== "number" || preco <= 0) {
+    return res.status(400).json({ mensagem: "Dados inválidos para atualização." });
+  }
+
   try {
     const respostaBusca = await axios.get(`https://www.bling.com.br/Api/v3/produtos/${produtoId}`, {
       headers: {
@@ -97,15 +101,12 @@ app.post("/atualizar-preco", async (req, res) => {
     }
 
     const produtoAtualizado = {
-      nome: produtoAtual.nome || "Produto sem nome",
+      nome: produtoAtual.nome,
       codigo: produtoAtual.codigo,
       preco: preco,
-      unidade: produtoAtual.unidade || "un",
-      situacao: produtoAtual.situacao || "A",
-      descricao: produtoAtual.descricao || "",
-      estoque: produtoAtual.estoque || 0,
-      formato: produtoAtual.formato || "S",
-      tipo: produtoAtual.tipo || "P"
+      unidade: produtoAtual.unidade,
+      formato: produtoAtual.formato,
+      tipo: produtoAtual.tipo,
     };
 
     await axios.put(
@@ -125,6 +126,7 @@ app.post("/atualizar-preco", async (req, res) => {
     res.status(500).json({ mensagem: "Erro ao atualizar preço." });
   }
 });
+
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`✅ Servidor rodando na porta ${PORT}`));
