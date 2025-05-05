@@ -58,23 +58,28 @@ app.get("/buscar-produto/:sku", async (req, res) => {
   }
 
   try {
+    // Primeiro: buscar produto por SKU
     const resposta = await axios.get(`https://www.bling.com.br/Api/v3/produtos?sku=${sku}`, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
+      headers: { Authorization: `Bearer ${accessToken}` },
     });
 
-    const produto = resposta.data?.data?.[0];
-    if (!produto) throw new Error("Produto não encontrado.");
+    const produtoResumo = resposta.data?.data?.[0];
+    if (!produtoResumo) throw new Error("Produto não encontrado.");
 
-    const imagem = produto.imagens?.[0]?.link || null;
-    const localizacao = produto.estoque?.localizacao || "";
+    // Segundo: buscar detalhes do produto com ID (para pegar imagem)
+    const detalhes = await axios.get(`https://www.bling.com.br/Api/v3/produtos/${produtoResumo.id}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    const produtoCompleto = detalhes.data?.data;
+    const imagem = produtoCompleto.imagens?.[0]?.link || null;
+    const localizacao = produtoCompleto.estoque?.localizacao || "";
 
     res.json({
       retorno: {
         produto: {
-          id: produto.id,
-          nome: produto.nome,
+          id: produtoResumo.id,
+          nome: produtoResumo.nome,
           localizacao,
           imagem,
         }
@@ -85,6 +90,7 @@ app.get("/buscar-produto/:sku", async (req, res) => {
     res.status(500).json({ mensagem: "Erro ao buscar produto." });
   }
 });
+
 
 app.post("/atualizar-localizacao", async (req, res) => {
   const { produtoId, localizacao } = req.body;
