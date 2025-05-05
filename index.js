@@ -1,3 +1,4 @@
+// index.js
 const express = require("express");
 const axios = require("axios");
 const cors = require("cors");
@@ -20,9 +21,7 @@ app.get("/auth", (req, res) => {
 app.get("/callback", async (req, res) => {
   const { code } = req.query;
 
-  if (!code) {
-    return res.status(400).send("Código de autorização ausente.");
-  }
+  if (!code) return res.status(400).send("Código de autorização ausente.");
 
   const basicAuth = Buffer.from(`${process.env.BLING_CLIENT_ID}:${process.env.BLING_CLIENT_SECRET}`).toString("base64");
 
@@ -44,7 +43,6 @@ app.get("/callback", async (req, res) => {
 
     accessToken = resposta.data.access_token;
     console.log("✅ Token recebido:", resposta.data);
-
     res.redirect("https://atualizador-site.vercel.app/");
   } catch (erro) {
     console.error("❌ Erro ao obter token:", erro.response?.data || erro.message);
@@ -69,7 +67,19 @@ app.get("/buscar-produto/:sku", async (req, res) => {
     const produto = resposta.data?.data?.[0];
     if (!produto) throw new Error("Produto não encontrado.");
 
-    res.json({ retorno: { produto, preco: produto.preco } });
+    const imagem = produto.imagens?.[0]?.link || null;
+    const localizacao = produto.estoque?.localizacao || "";
+
+    res.json({
+      retorno: {
+        produto: {
+          id: produto.id,
+          nome: produto.nome,
+          localizacao,
+          imagem,
+        }
+      }
+    });
   } catch (erro) {
     console.error("❌ Erro ao buscar produto:", erro.response?.data || erro.message);
     res.status(500).json({ mensagem: "Erro ao buscar produto." });
@@ -89,9 +99,7 @@ app.post("/atualizar-localizacao", async (req, res) => {
 
   try {
     const respostaBusca = await axios.get(`https://www.bling.com.br/Api/v3/produtos/${produtoId}`, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
+      headers: { Authorization: `Bearer ${accessToken}` },
     });
 
     const produtoAtual = respostaBusca.data?.data;
@@ -129,8 +137,6 @@ app.post("/atualizar-localizacao", async (req, res) => {
     res.status(500).json({ mensagem: "Erro ao atualizar localização." });
   }
 });
-
-
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`✅ Servidor rodando na porta ${PORT}`));
