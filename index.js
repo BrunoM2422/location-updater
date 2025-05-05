@@ -69,20 +69,22 @@ app.get("/buscar-produto/:sku", async (req, res) => {
     const produto = resposta.data?.data?.[0];
     if (!produto) throw new Error("Produto não encontrado.");
 
-    // ⬅️ Aqui corrigimos o formato de retorno
-    res.json({
-      retorno: {
+    const retorno = {
+      produto: {
+        id: produto.id,
         nome: produto.nome,
         localizacao: produto.localizacao || "",
-        estoque: produto.estoque?.estoque ?? 0,
+        estoque: produto.estoque?.estoque || 0
       }
-    });
+    };
+    
+
+    res.json({ retorno });
   } catch (erro) {
     console.error("❌ Erro ao buscar produto:", erro.response?.data || erro.message);
     res.status(500).json({ mensagem: "Erro ao buscar produto." });
   }
 });
-
 
 
 app.post("/atualizar-localizacao", async (req, res) => {
