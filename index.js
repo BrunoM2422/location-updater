@@ -98,6 +98,15 @@ app.post("/atualizar-localizacao", async (req, res) => {
       return res.status(404).json({ mensagem: "Produto não encontrado." });
     }
 
+    const depositosAtualizados = produtoAtual.depositos?.map((dep, index) => ({
+      ...dep,
+      localizacao: index === 0 ? localizacao : dep.localizacao,
+    })) || [{
+      depositoId: 1,
+      localizacao: localizacao,
+      saldo: 0
+    }];
+
     const produtoAtualizado = {
       nome: produtoAtual.nome || "Produto sem nome",
       codigo: produtoAtual.codigo,
@@ -108,12 +117,7 @@ app.post("/atualizar-localizacao", async (req, res) => {
       estoque: produtoAtual.estoque || 0,
       formato: produtoAtual.formato || "S",
       tipo: produtoAtual.tipo || "P",
-      depositos: [
-        {
-          depositoId: 1,
-          localizacao: localizacao
-        }
-      ]
+      depositos: depositosAtualizados,
     };
 
     await axios.put(
