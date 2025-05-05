@@ -52,7 +52,6 @@ app.get("/callback", async (req, res) => {
   }
 });
 
-// Buscar produto pelo SKU e retornar também localização
 app.get("/buscar-produto/:sku", async (req, res) => {
   const { sku } = req.params;
 
@@ -79,7 +78,6 @@ app.get("/buscar-produto/:sku", async (req, res) => {
   }
 });
 
-// Atualizar a localização do produto dentro do depósito
 app.post("/atualizar-localizacao", async (req, res) => {
   const { produtoId, localizacao } = req.body;
 
@@ -112,11 +110,10 @@ app.post("/atualizar-localizacao", async (req, res) => {
       tipo: produtoAtual.tipo || "P",
       depositos: [
         {
-          depositoId: 1, // Certifique-se de que este ID corresponde ao seu depósito
-          localizacao,
-          quantidade: produtoAtual.estoque || 0,
-        },
-      ],
+          depositoId: 1,
+          localizacao: localizacao
+        }
+      ]
     };
 
     await axios.put(
