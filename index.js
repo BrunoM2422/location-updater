@@ -11,20 +11,20 @@ app.use(express.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static("public"));
 
-// Rota principal que serve o index.html
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
-});
-
 let accessToken = "";
+let logado = false; // Flag de login local
 
-// ⚙️ Config de login fixo
+// ⚙️ Login fixo
 const USUARIO = "admin";
 const SENHA = "1234";
 
-console.log("🚀 Servidor iniciando...");
+// 🔐 Redireciona para login se não logado
+app.get("/", (req, res) => {
+  if (!logado) return res.redirect("/login");
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
 
-// 🔐 Página de login (opcional, caso use login fixo)
+// 🔁 Rota de login local
 app.get("/login", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "login.html"));
 });
@@ -32,18 +32,21 @@ app.get("/login", (req, res) => {
 app.post("/login", (req, res) => {
   const { usuario, senha } = req.body;
   if (usuario === USUARIO && senha === SENHA) {
-    res.redirect("/auth");
+    logado = true;
+    return res.redirect("/");
   } else {
-    res.send("❌ Usuário ou senha inválidos.");
+    return res.send("❌ Usuário ou senha inválidos.");
   }
 });
 
+// 🔐 Bling OAuth
 app.get("/auth", (req, res) => {
   const state = Math.random().toString(36).substring(2);
   const redirectUrl = `https://www.bling.com.br/Api/v3/oauth/authorize?response_type=code&client_id=${process.env.BLING_CLIENT_ID}&redirect_uri=${process.env.REDIRECT_URI}&scope=produtos_write&state=${state}`;
   res.redirect(redirectUrl);
 });
 
+// 🔁 Callback do Bling
 app.get("/callback", async (req, res) => {
   const { code } = req.query;
   if (!code) return res.status(400).send("Código de autorização ausente.");
@@ -67,20 +70,18 @@ app.get("/callback", async (req, res) => {
     );
 
     accessToken = resposta.data.access_token;
-    console.log("✅ Token recebido:", resposta.data);
-    res.redirect("/"); // Redireciona para o index.html
+    console.log("✅ Token recebido!");
+    res.redirect("/login"); // Agora vai pro login local
   } catch (erro) {
     console.error("❌ Erro ao obter token:", erro.response?.data || erro.message);
     res.status(500).send("Erro ao autenticar.");
   }
 });
 
+// 🔍 Buscar produto
 app.get("/buscar-produto/:sku", async (req, res) => {
   const { sku } = req.params;
-
-  if (!accessToken) {
-    return res.status(403).json({ mensagem: "Token de acesso não encontrado. Faça login via /auth." });
-  }
+  if (!accessToken) return res.status(403).json({ mensagem: "Faça login via /auth." });
 
   try {
     const resposta = await axios.get(`https://www.bling.com.br/Api/v3/produtos?sku=${sku}`, {
@@ -114,16 +115,11 @@ app.get("/buscar-produto/:sku", async (req, res) => {
   }
 });
 
+// ✏️ Atualizar localização
 app.post("/atualizar-localizacao", async (req, res) => {
   const { produtoId, localizacao } = req.body;
-
-  if (!accessToken) {
-    return res.status(403).json({ mensagem: "Token de acesso não encontrado. Faça login via /auth." });
-  }
-
-  if (!produtoId || typeof localizacao !== "string") {
-    return res.status(400).json({ mensagem: "Dados inválidos para atualização." });
-  }
+  if (!accessToken) return res.status(403).json({ mensagem: "Faça login via /auth." });
+  if (!produtoId || typeof localizacao !== "string") return res.status(400).json({ mensagem: "Dados inválidos." });
 
   try {
     const respostaBusca = await axios.get(`https://www.bling.com.br/Api/v3/produtos/${produtoId}`, {
