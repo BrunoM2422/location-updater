@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Atualizar Localização - Bling</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>  
+  <div class="container">
+    <h1>Atualizar Localização de Produto</h1>
+
+    <form id="form-buscar">
+      <input type="text" id="sku" placeholder="Digite o SKU do produto" required>
+      <button type="submit">Buscar Produto</button>
+    </form>
+
+    <div id="info-produto" style="display:none;">
+      <p><strong>Nome:</strong> <span id="nome-produto"></span></p>
+      <p><strong>Preço:</strong> R$ <span id="preco-produto"></span></p>
+      <p><strong>Localização atual:</strong> <span id="localizacao-atual"></span></p>
+
+      <form id="form-atualizar">
+        <input type="text" id="localizacao" placeholder="Nova Localização" required>
+        <button type="submit">Atualizar Localização</button>
+      </form>
+    </div>
+
+    <div id="mensagem"></div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

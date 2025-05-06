@@ -11,6 +11,11 @@ app.use(express.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static("public"));
 
+// Rota principal que serve o index.html
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
 let accessToken = "";
 
 // ⚙️ Config de login fixo
@@ -19,7 +24,7 @@ const SENHA = "1234";
 
 console.log("🚀 Servidor iniciando...");
 
-// 🔐 Página de login
+// 🔐 Página de login (opcional, caso use login fixo)
 app.get("/login", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "login.html"));
 });
