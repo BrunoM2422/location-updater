@@ -1,4 +1,4 @@
-const apiBaseUrl = window.location.origin; // Set to current origin
+const apiBaseUrl = "";
 
 const formBuscar = document.getElementById("form-buscar");
 const formAtualizar = document.getElementById("form-atualizar");
@@ -14,10 +14,6 @@ formBuscar.addEventListener("submit", async (e) => {
     const resposta = await fetch(`${apiBaseUrl}/buscar-produto/${sku}`);
     const dados = await resposta.json();
 
-    if (!dados.retorno || !dados.retorno.produto) {
-      throw new Error("Produto não encontrado");
-    }
-
     const produto = dados.retorno.produto;
 
     document.getElementById("info-produto").style.display = "block";
@@ -25,21 +21,24 @@ formBuscar.addEventListener("submit", async (e) => {
     document.getElementById("localizacao-atual").innerText = produto.localizacao?.trim() || "(vazio)";
     
     const imagemEl = document.getElementById("imagem-produto");
-    
-    // Improved image handling
-    if (produto.imagem) {
-      imagemEl.src = produto.imagem;
-      imagemEl.style.display = "block";
-      console.log("Image URL:", produto.imagem);
-    } else {
-      imagemEl.style.display = "none";
-      console.log("No image available for this product");
-    }
+
+console.log("🔎 Produto recebido:", produto);
+
+if (produto.imagem && produto.imagem.startsWith("http")) {
+  imagemEl.src = produto.imagem;
+  imagemEl.alt = "Imagem do Produto";
+  imagemEl.style.display = "block";
+} else {
+  imagemEl.src = "";
+  imagemEl.alt = "Imagem não disponível";
+  imagemEl.style.display = "none";
+}
+
 
     produtoId = produto.id;
   } catch (erro) {
-    console.error("Error:", erro);
-    alert("Erro ao buscar produto! " + erro.message);
+    console.error(erro);
+    alert("Erro ao buscar produto!");
   }
 });
 
