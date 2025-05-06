@@ -1,28 +1,38 @@
-// ============================
-// index.js (Atualizado)
-// ============================
-
 const express = require("express");
 const axios = require("axios");
 const cors = require("cors");
 const path = require("path");
 const bodyParser = require("body-parser");
+const session = require("express-session");
 require("dotenv").config();
 
 const app = express();
+
 app.use(cors());
 app.use(express.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static("public"));
+app.use(session({
+  secret: "chave-super-secreta",
+  resave: false,
+  saveUninitialized: true,
+  cookie: { maxAge: 1000 * 60 * 60 } // 1 hora
+}));
 
-let accessToken = "";
-let logado = false;
-
+// ========== VARIÁVEIS ==========
 const USUARIO = "admin";
 const SENHA = "1234";
+let accessToken = null;
+let tokenExpiraEm = null;
 
-app.get("/", (req, res) => {
-  if (!logado) return res.redirect("/login");
+// ========== MIDDLEWARE DE AUTENTICAÇÃO ==========
+function autenticado(req, res, next) {
+  if (req.session.logado) return next();
+  return res.redirect("/login");
+}
+
+// ========== ROTAS ==========
+app.get("/", autenticado, (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
@@ -33,7 +43,7 @@ app.get("/login", (req, res) => {
 app.post("/login", (req, res) => {
   const { usuario, senha } = req.body;
   if (usuario === USUARIO && senha === SENHA) {
-    logado = true;
+    req.session.logado = true;
     return res.redirect("/");
   } else {
     return res.send("❌ Usuário ou senha inválidos.");
@@ -69,6 +79,9 @@ app.get("/callback", async (req, res) => {
     );
 
     accessToken = resposta.data.access_token;
+    const expiresIn = resposta.data.expires_in;
+    tokenExpiraEm = Date.now() + expiresIn * 1000;
+
     console.log("✅ Token recebido!");
     res.redirect("/");
   } catch (erro) {
@@ -77,18 +90,26 @@ app.get("/callback", async (req, res) => {
   }
 });
 
+// ========== FUNÇÃO DE VERIFICAÇÃO DE TOKEN ==========
+function verificarTokenValido() {
+  return accessToken && tokenExpiraEm && Date.now() < tokenExpiraEm;
+}
+
+// ========== BUSCAR PRODUTO ==========
 app.get("/buscar-produto", async (req, res) => {
   const { tipo, valor } = req.query;
-  if (!accessToken) return res.status(403).json({ mensagem: "Faça login via /auth." });
+  if (!verificarTokenValido()) return res.status(403).json({ mensagem: "Faça login via /auth." });
+
+  const valorSanitizado = String(valor).trim();
 
   try {
-    const filtro = tipo === "ean" ? `gtin=${valor}` : `sku=${valor}`;
+    const filtro = tipo === "ean" ? `gtin=${valorSanitizado}` : `sku=${valorSanitizado}`;
     const resposta = await axios.get(`https://www.bling.com.br/Api/v3/produtos?${filtro}`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
 
     const produtoResumo = resposta.data?.data?.[0];
-    if (!produtoResumo) throw new Error("Produto não encontrado.");
+    if (!produtoResumo) return res.status(404).json({ mensagem: "Produto não encontrado." });
 
     const detalhes = await axios.get(`https://www.bling.com.br/Api/v3/produtos/${produtoResumo.id}`, {
       headers: { Authorization: `Bearer ${accessToken}` },
@@ -124,10 +145,13 @@ app.get("/buscar-produto", async (req, res) => {
   }
 });
 
+// ========== ATUALIZAR LOCALIZAÇÃO ==========
 app.post("/atualizar-localizacao", async (req, res) => {
   const { produtoId, localizacao } = req.body;
-  if (!accessToken) return res.status(403).json({ mensagem: "Faça login via /auth." });
-  if (!produtoId || typeof localizacao !== "string") return res.status(400).json({ mensagem: "Dados inválidos." });
+  if (!verificarTokenValido()) return res.status(403).json({ mensagem: "Faça login via /auth." });
+
+  const local = String(localizacao || "").trim();
+  if (!produtoId || !local) return res.status(400).json({ mensagem: "Dados inválidos." });
 
   try {
     const respostaBusca = await axios.get(`https://www.bling.com.br/Api/v3/produtos/${produtoId}`, {
@@ -137,13 +161,13 @@ app.post("/atualizar-localizacao", async (req, res) => {
     const produtoAtual = respostaBusca.data?.data;
 
     const produtoAtualizado = {
-      nome: produtoAtual.nome,
-      codigo: produtoAtual.codigo,
-      preco: produtoAtual.preco,
-      unidade: produtoAtual.unidade,
-      formato: produtoAtual.formato,
-      tipo: produtoAtual.tipo,
-      estoque: { localizacao },
+      nome: produtoAtual.nome || "Produto",
+      codigo: produtoAtual.codigo || "0000",
+      preco: produtoAtual.preco || 0,
+      unidade: produtoAtual.unidade || "un",
+      formato: produtoAtual.formato || "P",
+      tipo: produtoAtual.tipo || "P",
+      estoque: { localizacao: local },
     };
 
     await axios.put(`https://www.bling.com.br/Api/v3/produtos/${produtoId}`,
@@ -156,12 +180,13 @@ app.post("/atualizar-localizacao", async (req, res) => {
       }
     );
 
-    res.json({ mensagem: "Localização atualizada com sucesso!" });
+    res.json({ mensagem: "✅ Localização atualizada com sucesso!" });
   } catch (erro) {
     console.error("❌ Erro ao atualizar localização:", erro.response?.data || erro.message);
     res.status(500).json({ mensagem: "Erro ao atualizar localização." });
   }
 });
 
+// ========== INICIAR SERVIDOR ==========
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`✅ Servidor rodando na porta ${PORT}`));

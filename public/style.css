@@ -14,10 +14,17 @@ body {
   box-shadow: 0 0 10px rgba(0,0,0,0.1);
 }
 
+h1 {
+  text-align: center;
+  color: #333;
+}
+
 input[type="text"], select {
   width: 100%;
   padding: 10px;
   margin: 10px 0;
+  border: 1px solid #ccc;
+  border-radius: 4px;
 }
 
 button {
@@ -27,6 +34,7 @@ button {
   color: white;
   border: none;
   margin-top: 10px;
+  border-radius: 4px;
   cursor: pointer;
 }
 
@@ -38,4 +46,5 @@ button:hover {
   margin-top: 20px;
   font-weight: bold;
   color: green;
+  text-align: center;
 }

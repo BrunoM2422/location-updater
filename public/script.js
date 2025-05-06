@@ -1,4 +1,4 @@
-const apiBaseUrl = "";
+const apiBaseUrl = ""; // Deixe vazio se estiver no mesmo domínio
 
 const formBuscar = document.getElementById("form-buscar");
 const formAtualizar = document.getElementById("form-atualizar");
@@ -9,13 +9,18 @@ formBuscar.addEventListener("submit", async (e) => {
   e.preventDefault();
 
   const tipoBusca = document.getElementById("tipo-busca").value;
-  const valorBusca = document.getElementById("valor-busca").value;
+  const valorBusca = document.getElementById("valor-busca").value.trim();
+
+  if (!valorBusca) {
+    alert("Informe um valor para busca.");
+    return;
+  }
 
   try {
-    const resposta = await fetch(`${apiBaseUrl}/buscar-produto?tipo=${tipoBusca}&valor=${valorBusca}`);
+    const resposta = await fetch(`${apiBaseUrl}/buscar-produto?tipo=${tipoBusca}&valor=${encodeURIComponent(valorBusca)}`);
     const dados = await resposta.json();
 
-    const produto = dados.retorno.produto;
+    const produto = dados.retorno?.produto;
 
     if (!produto) {
       alert("Produto não encontrado.");
@@ -39,6 +44,8 @@ formBuscar.addEventListener("submit", async (e) => {
     }
 
     produtoId = produto.id;
+    document.getElementById("mensagem").innerText = "";
+
   } catch (erro) {
     console.error(erro);
     alert("Erro ao buscar produto!");
@@ -48,10 +55,15 @@ formBuscar.addEventListener("submit", async (e) => {
 formAtualizar.addEventListener("submit", async (e) => {
   e.preventDefault();
 
-  const localizacao = document.getElementById("localizacao").value;
+  const localizacao = document.getElementById("localizacao").value.trim();
 
   if (!produtoId) {
     alert("Nenhum produto selecionado!");
+    return;
+  }
+
+  if (!localizacao) {
+    alert("Digite a nova localização.");
     return;
   }
 
@@ -65,6 +77,11 @@ formAtualizar.addEventListener("submit", async (e) => {
     });
 
     const dados = await resposta.json();
+
+    if (!resposta.ok) {
+      throw new Error(dados.mensagem || "Erro ao atualizar.");
+    }
+
     document.getElementById("mensagem").innerText = dados.mensagem;
     document.getElementById("localizacao-atual").innerText = localizacao;
   } catch (erro) {
