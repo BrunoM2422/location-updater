@@ -21,13 +21,19 @@ formBuscar.addEventListener("submit", async (e) => {
     document.getElementById("localizacao-atual").innerText = produto.localizacao?.trim() || "(vazio)";
     
     const imagemEl = document.getElementById("imagem-produto");
-    if (produto.imagem) {
-      imagemEl.src = produto.imagem;
-      imagemEl.style.display = "block";
-    } else {
-      imagemEl.src = "";
-      imagemEl.style.display = "none";
-    }
+
+console.log("🔎 Produto recebido:", produto);
+
+if (produto.imagem && produto.imagem.startsWith("http")) {
+  imagemEl.src = produto.imagem;
+  imagemEl.alt = "Imagem do Produto";
+  imagemEl.style.display = "block";
+} else {
+  imagemEl.src = "";
+  imagemEl.alt = "Imagem não disponível";
+  imagemEl.style.display = "none";
+}
+
 
     produtoId = produto.id;
   } catch (erro) {
