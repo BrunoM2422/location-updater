@@ -40,3 +40,24 @@ button:hover {
   font-weight: bold;
   color: green;
 }
+
+/* Add these to your existing style.css */
+#imagem-container {
+  margin: 15px 0;
+  padding: 10px;
+  background: #f9f9f9;
+  border-radius: 5px;
+}
+
+#imagem-produto {
+  max-height: 200px;
+  object-fit: contain;
+  margin-top: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 5px;
+}
+
+#sem-imagem {
+  font-style: italic;
+}
