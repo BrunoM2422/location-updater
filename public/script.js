@@ -18,8 +18,16 @@ formBuscar.addEventListener("submit", async (e) => {
 
     document.getElementById("info-produto").style.display = "block";
     document.getElementById("nome-produto").innerText = produto.nome;
-    document.getElementById("preco-produto").innerText = produto.estoque;
     document.getElementById("localizacao-atual").innerText = produto.localizacao?.trim() || "(vazio)";
+    
+    const imagemEl = document.getElementById("imagem-produto");
+    if (produto.imagem) {
+      imagemEl.src = produto.imagem;
+      imagemEl.style.display = "block";
+    } else {
+      imagemEl.src = "";
+      imagemEl.style.display = "none";
+    }
 
     produtoId = produto.id;
   } catch (erro) {

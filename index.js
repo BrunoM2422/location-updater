@@ -78,6 +78,8 @@ app.get("/callback", async (req, res) => {
 });
 
 // Buscar produto
+// ... (importações e configuração inicial permanecem iguais)
+
 app.get("/buscar-produto/:sku", async (req, res) => {
   const { sku } = req.params;
   if (!accessToken) return res.status(403).json({ mensagem: "Faça login via /auth." });
@@ -96,7 +98,8 @@ app.get("/buscar-produto/:sku", async (req, res) => {
 
     const produtoCompleto = detalhes.data?.data;
     const localizacao = produtoCompleto.estoque?.localizacao || "";
-    const estoque = produtoCompleto.estoque?.saldo || 0;
+    const imagens = produtoCompleto.imagens || [];
+    const primeiraImagem = imagens[0]?.link || null;
 
     res.json({
       retorno: {
@@ -104,7 +107,7 @@ app.get("/buscar-produto/:sku", async (req, res) => {
           id: produtoResumo.id,
           nome: produtoResumo.nome,
           localizacao,
-          estoque,
+          imagem: primeiraImagem,
         }
       }
     });
@@ -113,6 +116,9 @@ app.get("/buscar-produto/:sku", async (req, res) => {
     res.status(500).json({ mensagem: "Erro ao buscar produto." });
   }
 });
+
+// ... (demais rotas permanecem iguais)
+
 
 // Atualizar localização
 app.post("/atualizar-localizacao", async (req, res) => {
