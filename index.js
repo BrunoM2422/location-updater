@@ -1,16 +1,37 @@
-// index.js
 const express = require("express");
 const axios = require("axios");
 const cors = require("cors");
+const path = require("path");
+const bodyParser = require("body-parser");
 require("dotenv").config();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.static("public"));
 
 let accessToken = "";
 
+// ⚙️ Config de login fixo
+const USUARIO = "admin";
+const SENHA = "1234";
+
 console.log("🚀 Servidor iniciando...");
+
+// 🔐 Página de login
+app.get("/login", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "login.html"));
+});
+
+app.post("/login", (req, res) => {
+  const { usuario, senha } = req.body;
+  if (usuario === USUARIO && senha === SENHA) {
+    res.redirect("/auth");
+  } else {
+    res.send("❌ Usuário ou senha inválidos.");
+  }
+});
 
 app.get("/auth", (req, res) => {
   const state = Math.random().toString(36).substring(2);
@@ -20,7 +41,6 @@ app.get("/auth", (req, res) => {
 
 app.get("/callback", async (req, res) => {
   const { code } = req.query;
-
   if (!code) return res.status(400).send("Código de autorização ausente.");
 
   const basicAuth = Buffer.from(`${process.env.BLING_CLIENT_ID}:${process.env.BLING_CLIENT_SECRET}`).toString("base64");
@@ -43,7 +63,7 @@ app.get("/callback", async (req, res) => {
 
     accessToken = resposta.data.access_token;
     console.log("✅ Token recebido:", resposta.data);
-    res.redirect("https://atualizador-site.vercel.app/");
+    res.redirect("/"); // Redireciona para o index.html
   } catch (erro) {
     console.error("❌ Erro ao obter token:", erro.response?.data || erro.message);
     res.status(500).send("Erro ao autenticar.");
@@ -58,7 +78,6 @@ app.get("/buscar-produto/:sku", async (req, res) => {
   }
 
   try {
-    // Primeiro: buscar produto por SKU
     const resposta = await axios.get(`https://www.bling.com.br/Api/v3/produtos?sku=${sku}`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
@@ -66,14 +85,13 @@ app.get("/buscar-produto/:sku", async (req, res) => {
     const produtoResumo = resposta.data?.data?.[0];
     if (!produtoResumo) throw new Error("Produto não encontrado.");
 
-    // Segundo: buscar detalhes do produto com ID (para pegar imagem e localização)
     const detalhes = await axios.get(`https://www.bling.com.br/Api/v3/produtos/${produtoResumo.id}`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
 
     const produtoCompleto = detalhes.data?.data;
-    const imagem = produtoCompleto.imagens?.[0]?.link || null;
     const localizacao = produtoCompleto.estoque?.localizacao || "";
+    const preco = produtoCompleto.preco || "0.00";
 
     res.json({
       retorno: {
@@ -81,7 +99,7 @@ app.get("/buscar-produto/:sku", async (req, res) => {
           id: produtoResumo.id,
           nome: produtoResumo.nome,
           localizacao,
-          imagem,
+          preco,
         }
       }
     });
@@ -108,10 +126,6 @@ app.post("/atualizar-localizacao", async (req, res) => {
     });
 
     const produtoAtual = respostaBusca.data?.data;
-
-    if (!produtoAtual) {
-      return res.status(404).json({ mensagem: "Produto não encontrado." });
-    }
 
     const produtoAtualizado = {
       nome: produtoAtual.nome,
