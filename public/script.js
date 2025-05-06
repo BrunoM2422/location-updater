@@ -18,7 +18,7 @@ formBuscar.addEventListener("submit", async (e) => {
 
     document.getElementById("info-produto").style.display = "block";
     document.getElementById("nome-produto").innerText = produto.nome;
-    document.getElementById("preco-produto").innerText = parseFloat(produto.preco).toFixed(2);
+    document.getElementById("preco-produto").innerText = produto.estoque;
     document.getElementById("localizacao-atual").innerText = produto.localizacao?.trim() || "(vazio)";
 
     produtoId = produto.id;
@@ -49,7 +49,6 @@ formAtualizar.addEventListener("submit", async (e) => {
 
     const dados = await resposta.json();
     document.getElementById("mensagem").innerText = dados.mensagem;
-
     document.getElementById("localizacao-atual").innerText = localizacao;
   } catch (erro) {
     console.error(erro);

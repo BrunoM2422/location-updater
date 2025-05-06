@@ -12,19 +12,19 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static("public"));
 
 let accessToken = "";
-let logado = false; // Flag de login local
+let logado = false;
 
-// ⚙️ Login fixo
+// Login fixo
 const USUARIO = "admin";
 const SENHA = "1234";
 
-// 🔐 Redireciona para login se não logado
+// Middleware de login
 app.get("/", (req, res) => {
   if (!logado) return res.redirect("/login");
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-// 🔁 Rota de login local
+// Página de login
 app.get("/login", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "login.html"));
 });
@@ -39,14 +39,13 @@ app.post("/login", (req, res) => {
   }
 });
 
-// 🔐 Bling OAuth
+// OAuth Bling
 app.get("/auth", (req, res) => {
   const state = Math.random().toString(36).substring(2);
   const redirectUrl = `https://www.bling.com.br/Api/v3/oauth/authorize?response_type=code&client_id=${process.env.BLING_CLIENT_ID}&redirect_uri=${process.env.REDIRECT_URI}&scope=produtos_write&state=${state}`;
   res.redirect(redirectUrl);
 });
 
-// 🔁 Callback do Bling
 app.get("/callback", async (req, res) => {
   const { code } = req.query;
   if (!code) return res.status(400).send("Código de autorização ausente.");
@@ -71,14 +70,14 @@ app.get("/callback", async (req, res) => {
 
     accessToken = resposta.data.access_token;
     console.log("✅ Token recebido!");
-    res.redirect("/login"); // Agora vai pro login local
+    res.redirect("/login");
   } catch (erro) {
     console.error("❌ Erro ao obter token:", erro.response?.data || erro.message);
     res.status(500).send("Erro ao autenticar.");
   }
 });
 
-// 🔍 Buscar produto
+// Buscar produto
 app.get("/buscar-produto/:sku", async (req, res) => {
   const { sku } = req.params;
   if (!accessToken) return res.status(403).json({ mensagem: "Faça login via /auth." });
@@ -97,7 +96,7 @@ app.get("/buscar-produto/:sku", async (req, res) => {
 
     const produtoCompleto = detalhes.data?.data;
     const localizacao = produtoCompleto.estoque?.localizacao || "";
-    const preco = produtoCompleto.preco || "0.00";
+    const estoque = produtoCompleto.estoque?.saldo || 0;
 
     res.json({
       retorno: {
@@ -105,7 +104,7 @@ app.get("/buscar-produto/:sku", async (req, res) => {
           id: produtoResumo.id,
           nome: produtoResumo.nome,
           localizacao,
-          preco,
+          estoque,
         }
       }
     });
@@ -115,7 +114,7 @@ app.get("/buscar-produto/:sku", async (req, res) => {
   }
 });
 
-// ✏️ Atualizar localização
+// Atualizar localização
 app.post("/atualizar-localizacao", async (req, res) => {
   const { produtoId, localizacao } = req.body;
   if (!accessToken) return res.status(403).json({ mensagem: "Faça login via /auth." });
