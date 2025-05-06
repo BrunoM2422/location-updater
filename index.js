@@ -1,3 +1,7 @@
+// ============================
+// index.js (Atualizado)
+// ============================
+
 const express = require("express");
 const axios = require("axios");
 const cors = require("cors");
@@ -14,17 +18,14 @@ app.use(express.static("public"));
 let accessToken = "";
 let logado = false;
 
-// Login fixo
 const USUARIO = "admin";
 const SENHA = "1234";
 
-// Middleware de login
 app.get("/", (req, res) => {
   if (!logado) return res.redirect("/login");
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-// Página de login
 app.get("/login", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "login.html"));
 });
@@ -39,7 +40,6 @@ app.post("/login", (req, res) => {
   }
 });
 
-// OAuth Bling
 app.get("/auth", (req, res) => {
   const state = Math.random().toString(36).substring(2);
   const redirectUrl = `https://www.bling.com.br/Api/v3/oauth/authorize?response_type=code&client_id=${process.env.BLING_CLIENT_ID}&redirect_uri=${process.env.REDIRECT_URI}&scope=produtos_write&state=${state}`;
@@ -70,22 +70,20 @@ app.get("/callback", async (req, res) => {
 
     accessToken = resposta.data.access_token;
     console.log("✅ Token recebido!");
-    res.redirect("/login");
+    res.redirect("/");
   } catch (erro) {
     console.error("❌ Erro ao obter token:", erro.response?.data || erro.message);
     res.status(500).send("Erro ao autenticar.");
   }
 });
 
-// Buscar produto
-// ... (importações e configuração inicial permanecem iguais)
-
-app.get("/buscar-produto/:sku", async (req, res) => {
-  const { sku } = req.params;
+app.get("/buscar-produto", async (req, res) => {
+  const { tipo, valor } = req.query;
   if (!accessToken) return res.status(403).json({ mensagem: "Faça login via /auth." });
 
   try {
-    const resposta = await axios.get(`https://www.bling.com.br/Api/v3/produtos?sku=${sku}`, {
+    const filtro = tipo === "ean" ? `gtin=${valor}` : `sku=${valor}`;
+    const resposta = await axios.get(`https://www.bling.com.br/Api/v3/produtos?${filtro}`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
 
@@ -99,7 +97,16 @@ app.get("/buscar-produto/:sku", async (req, res) => {
     const produtoCompleto = detalhes.data?.data;
     const localizacao = produtoCompleto.estoque?.localizacao || "";
     const imagens = produtoCompleto.imagens || [];
-    const primeiraImagem = imagens[0]?.link || null;
+    let primeiraImagem = imagens[0]?.link || null;
+
+    // Corrigir URL do Google Drive
+    if (primeiraImagem?.includes("lh3.googleusercontent.com/d/")) {
+      const match = primeiraImagem.match(/\/d\/([^/]+)/);
+      if (match && match[1]) {
+        const id = match[1];
+        primeiraImagem = `https://drive.google.com/uc?id=${id}`;
+      }
+    }
 
     res.json({
       retorno: {
@@ -108,8 +115,8 @@ app.get("/buscar-produto/:sku", async (req, res) => {
           nome: produtoResumo.nome,
           localizacao,
           imagem: primeiraImagem,
-        }
-      }
+        },
+      },
     });
   } catch (erro) {
     console.error("❌ Erro ao buscar produto:", erro.response?.data || erro.message);
@@ -117,10 +124,6 @@ app.get("/buscar-produto/:sku", async (req, res) => {
   }
 });
 
-// ... (demais rotas permanecem iguais)
-
-
-// Atualizar localização
 app.post("/atualizar-localizacao", async (req, res) => {
   const { produtoId, localizacao } = req.body;
   if (!accessToken) return res.status(403).json({ mensagem: "Faça login via /auth." });
@@ -140,13 +143,10 @@ app.post("/atualizar-localizacao", async (req, res) => {
       unidade: produtoAtual.unidade,
       formato: produtoAtual.formato,
       tipo: produtoAtual.tipo,
-      estoque: {
-        localizacao: localizacao
-      }
+      estoque: { localizacao },
     };
 
-    await axios.put(
-      `https://www.bling.com.br/Api/v3/produtos/${produtoId}`,
+    await axios.put(`https://www.bling.com.br/Api/v3/produtos/${produtoId}`,
       produtoAtualizado,
       {
         headers: {

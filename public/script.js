@@ -8,32 +8,35 @@ let produtoId = null;
 formBuscar.addEventListener("submit", async (e) => {
   e.preventDefault();
 
-  const sku = document.getElementById("sku").value;
+  const tipoBusca = document.getElementById("tipo-busca").value;
+  const valorBusca = document.getElementById("valor-busca").value;
 
   try {
-    const resposta = await fetch(`${apiBaseUrl}/buscar-produto/${sku}`);
+    const resposta = await fetch(`${apiBaseUrl}/buscar-produto?tipo=${tipoBusca}&valor=${valorBusca}`);
     const dados = await resposta.json();
 
     const produto = dados.retorno.produto;
 
+    if (!produto) {
+      alert("Produto não encontrado.");
+      return;
+    }
+
     document.getElementById("info-produto").style.display = "block";
     document.getElementById("nome-produto").innerText = produto.nome;
     document.getElementById("localizacao-atual").innerText = produto.localizacao?.trim() || "(vazio)";
-    
+
     const imagemEl = document.getElementById("imagem-produto");
 
-console.log("🔎 Produto recebido:", produto);
-
-if (produto.imagem && produto.imagem.startsWith("http")) {
-  imagemEl.src = produto.imagem;
-  imagemEl.alt = "Imagem do Produto";
-  imagemEl.style.display = "block";
-} else {
-  imagemEl.src = "";
-  imagemEl.alt = "Imagem não disponível";
-  imagemEl.style.display = "none";
-}
-
+    if (produto.imagem && produto.imagem.startsWith("http")) {
+      imagemEl.src = produto.imagem;
+      imagemEl.alt = "Imagem do Produto";
+      imagemEl.style.display = "block";
+    } else {
+      imagemEl.src = "";
+      imagemEl.alt = "Imagem não disponível";
+      imagemEl.style.display = "none";
+    }
 
     produtoId = produto.id;
   } catch (erro) {
