@@ -96,6 +96,8 @@ app.get("/buscar-produto/:codigo", async (req, res) => {
     const detalhes = await axios.get(`https://www.bling.com.br/Api/v3/produtos/${produtoResumo.id}`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
+    console.log("🔍 Produto completo:", JSON.stringify(detalhes.data, null, 2));
+
 
     const produtoCompleto = detalhes.data?.data;
 
