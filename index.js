@@ -14,8 +14,8 @@ app.use(express.static("public"));
 let accessToken = "";
 let logado = false;
 
-const USUARIO = "admin";
-const SENHA = "1234";
+const USUARIO = "msestoque@magisol";
+const SENHA = "msestoque@2025";
 
 app.get("/", (req, res) => {
   if (!logado) return res.redirect("/login");
