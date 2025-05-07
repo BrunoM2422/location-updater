@@ -195,12 +195,20 @@ app.post("/atualizar-localizacao", async (req, res) => {
       nome: produtoAtual.nome,
       tipo: produtoAtual.tipo,
       situacao: produtoAtual.situacao,
-      unidade: produtoAtual.unidade,
+      unidade: produtoAtual.unidade || "UN",
       preco: produtoAtual.preco,
+      precoCusto: produtoAtual.precoCusto,
+      codigo: produtoAtual.codigo,
+      descricao: produtoAtual.descricao || "",
+      gtin: produtoAtual.gtin || "",
+      marca: produtoAtual.marca || "",
+      categoria: produtoAtual.categoria?.id ? { id: produtoAtual.categoria.id } : undefined,
       estoque: {
+        ...produtoAtual.estoque,
         localizacao: localizacao,
       },
     };
+    
 
     await axios.put(
       `https://www.bling.com.br/Api/v3/produtos/${produtoId}`,
