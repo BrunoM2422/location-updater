@@ -103,14 +103,45 @@ app.get("/buscar-produto", async (req, res) => {
   const valorSanitizado = String(valor).trim();
 
   try {
-    const filtro = tipo === "ean" ? `gtin=${valorSanitizado}` : `sku=${valorSanitizado}`;
-    const resposta = await axios.get(`https://www.bling.com.br/Api/v3/produtos?${filtro}`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
+    let produtoResumo = null;
 
-    const produtoResumo = resposta.data?.data?.[0];
-    if (!produtoResumo) return res.status(404).json({ mensagem: "Produto não encontrado." });
+    if (tipo === "sku") {
+      // Busca direta por SKU
+      const resposta = await axios.get(`https://www.bling.com.br/Api/v3/produtos?sku=${valorSanitizado}`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      produtoResumo = resposta.data?.data?.[0];
 
+    } else if (tipo === "ean") {
+      // Busca por EAN com paginação
+      let pagina = 1;
+      let achou = false;
+
+      while (!achou) {
+        const resposta = await axios.get(`https://www.bling.com.br/Api/v3/produtos?page=${pagina}&limit=100`, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+
+        const produtos = resposta.data?.data || [];
+
+        produtoResumo = produtos.find(p => p.gtin?.trim() === valorSanitizado);
+        if (produtoResumo) {
+          achou = true;
+          break;
+        }
+
+        if (produtos.length < 100) break; // Última página
+        pagina++;
+      }
+    } else {
+      return res.status(400).json({ mensagem: "Tipo de busca inválido." });
+    }
+
+    if (!produtoResumo) {
+      return res.status(404).json({ mensagem: "Produto não encontrado." });
+    }
+
+    // Buscar detalhes
     const detalhes = await axios.get(`https://www.bling.com.br/Api/v3/produtos/${produtoResumo.id}`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
@@ -120,7 +151,7 @@ app.get("/buscar-produto", async (req, res) => {
     const imagens = produtoCompleto.imagens || [];
     let primeiraImagem = imagens[0]?.link || null;
 
-    // Corrigir URL do Google Drive
+    // Corrigir imagem do Google Drive
     if (primeiraImagem?.includes("lh3.googleusercontent.com/d/")) {
       const match = primeiraImagem.match(/\/d\/([^/]+)/);
       if (match && match[1]) {
@@ -139,19 +170,17 @@ app.get("/buscar-produto", async (req, res) => {
         },
       },
     });
+
   } catch (erro) {
     console.error("❌ Erro ao buscar produto:", erro.response?.data || erro.message);
     res.status(500).json({ mensagem: "Erro ao buscar produto." });
   }
 });
 
-// ========== ATUALIZAR LOCALIZAÇÃO ==========
 app.post("/atualizar-localizacao", async (req, res) => {
   const { produtoId, localizacao } = req.body;
-  if (!verificarTokenValido()) return res.status(403).json({ mensagem: "Faça login via /auth." });
-
-  const local = String(localizacao || "").trim();
-  if (!produtoId || !local) return res.status(400).json({ mensagem: "Dados inválidos." });
+  if (!accessToken) return res.status(403).json({ mensagem: "Faça login via /auth." });
+  if (!produtoId || typeof localizacao !== "string") return res.status(400).json({ mensagem: "Dados inválidos." });
 
   try {
     const respostaBusca = await axios.get(`https://www.bling.com.br/Api/v3/produtos/${produtoId}`, {
@@ -159,18 +188,22 @@ app.post("/atualizar-localizacao", async (req, res) => {
     });
 
     const produtoAtual = respostaBusca.data?.data;
+    if (!produtoAtual) throw new Error("Produto não encontrado.");
 
+    // Preparar somente os dados necessários para o PUT
     const produtoAtualizado = {
-      nome: produtoAtual.nome || "Produto",
-      codigo: produtoAtual.codigo || "0000",
-      preco: produtoAtual.preco || 0,
-      unidade: produtoAtual.unidade || "un",
-      formato: produtoAtual.formato || "P",
-      tipo: produtoAtual.tipo || "P",
-      estoque: { localizacao: local },
+      nome: produtoAtual.nome,
+      tipo: produtoAtual.tipo,
+      situacao: produtoAtual.situacao,
+      unidade: produtoAtual.unidade,
+      preco: produtoAtual.preco,
+      estoque: {
+        localizacao: localizacao,
+      },
     };
 
-    await axios.put(`https://www.bling.com.br/Api/v3/produtos/${produtoId}`,
+    await axios.put(
+      `https://www.bling.com.br/Api/v3/produtos/${produtoId}`,
       produtoAtualizado,
       {
         headers: {
@@ -180,12 +213,15 @@ app.post("/atualizar-localizacao", async (req, res) => {
       }
     );
 
-    res.json({ mensagem: "✅ Localização atualizada com sucesso!" });
+    res.json({ mensagem: "Localização atualizada com sucesso!" });
+
   } catch (erro) {
     console.error("❌ Erro ao atualizar localização:", erro.response?.data || erro.message);
     res.status(500).json({ mensagem: "Erro ao atualizar localização." });
   }
 });
+
+
 
 // ========== INICIAR SERVIDOR ==========
 const PORT = process.env.PORT || 3000;
