@@ -101,7 +101,8 @@ app.get("/buscar-produto/:codigo", async (req, res) => {
     const localizacao = produtoCompleto.estoque?.localizacao || "";
     const imagens = produtoCompleto.imagens || [];
     const primeiraImagem = imagens[0]?.link || null;
-    const quantidadeEstoque = produtoCompleto.estoque?.saldo?.disponivel || 0;
+    const quantidadeEstoque = produtoCompleto.estoque?.saldos?.[0]?.disponivel ?? 0;
+
 
     res.json({
       retorno: {
