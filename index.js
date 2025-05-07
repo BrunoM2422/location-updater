@@ -86,12 +86,13 @@ app.get("/buscar-produto/:codigo", async (req, res) => {
     let produtoResumo = resposta.data?.data?.[0];
 
     // Se não achou por SKU, tenta por GTIN
-    if (!produtoResumo) {
+    if (!produtoResumo && /^[0-9]{8,14}$/.test(codigo)) {
       resposta = await axios.get(`https://www.bling.com.br/Api/v3/produtos?gtin=${codigo}`, {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
       produtoResumo = resposta.data?.data?.[0];
     }
+    
 
     if (!produtoResumo) throw new Error("Produto não encontrado.");
 
