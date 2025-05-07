@@ -1,39 +1,30 @@
-// index.js
 const express = require("express");
 const axios = require("axios");
 const cors = require("cors");
 const path = require("path");
 const bodyParser = require("body-parser");
-const session = require("express-session");
 require("dotenv").config();
 
 const app = express();
-
 app.use(cors());
 app.use(express.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static("public"));
-app.use(session({
-  secret: "chave-super-secreta",
-  resave: false,
-  saveUninitialized: true,
-  cookie: { maxAge: 1000 * 60 * 60 }
-}));
 
+let accessToken = "";
+let logado = false;
+
+// Login fixo
 const USUARIO = "admin";
 const SENHA = "1234";
-let accessToken = null;
-let tokenExpiraEm = null;
 
-function autenticado(req, res, next) {
-  if (req.session.logado) return next();
-  return res.redirect("/login");
-}
-
-app.get("/", autenticado, (req, res) => {
+// Middleware de login
+app.get("/", (req, res) => {
+  if (!logado) return res.redirect("/login");
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
+// Página de login
 app.get("/login", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "login.html"));
 });
@@ -41,13 +32,14 @@ app.get("/login", (req, res) => {
 app.post("/login", (req, res) => {
   const { usuario, senha } = req.body;
   if (usuario === USUARIO && senha === SENHA) {
-    req.session.logado = true;
+    logado = true;
     return res.redirect("/");
   } else {
     return res.send("❌ Usuário ou senha inválidos.");
   }
 });
 
+// OAuth Bling
 app.get("/auth", (req, res) => {
   const state = Math.random().toString(36).substring(2);
   const redirectUrl = `https://www.bling.com.br/Api/v3/oauth/authorize?response_type=code&client_id=${process.env.BLING_CLIENT_ID}&redirect_uri=${process.env.REDIRECT_URI}&scope=produtos_write&state=${state}`;
@@ -77,55 +69,28 @@ app.get("/callback", async (req, res) => {
     );
 
     accessToken = resposta.data.access_token;
-    tokenExpiraEm = Date.now() + resposta.data.expires_in * 1000;
-
     console.log("✅ Token recebido!");
-    res.redirect("/");
+    res.redirect("/login");
   } catch (erro) {
     console.error("❌ Erro ao obter token:", erro.response?.data || erro.message);
     res.status(500).send("Erro ao autenticar.");
   }
 });
 
-function verificarTokenValido() {
-  return accessToken && tokenExpiraEm && Date.now() < tokenExpiraEm;
-}
+// Buscar produto
+// ... (importações e configuração inicial permanecem iguais)
 
-app.get("/buscar-produto", async (req, res) => {
-  const { tipo, valor } = req.query;
-  if (!verificarTokenValido()) return res.status(403).json({ mensagem: "Faça login via /auth." });
-
-  const valorSanitizado = String(valor).trim();
+app.get("/buscar-produto/:sku", async (req, res) => {
+  const { sku } = req.params;
+  if (!accessToken) return res.status(403).json({ mensagem: "Faça login via /auth." });
 
   try {
-    let produtoResumo = null;
+    const resposta = await axios.get(`https://www.bling.com.br/Api/v3/produtos?sku=${sku}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
 
-    if (tipo === "sku") {
-      const resposta = await axios.get(`https://www.bling.com.br/Api/v3/produtos?sku=${valorSanitizado}`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      produtoResumo = resposta.data?.data?.[0];
-
-    } else if (tipo === "ean") {
-      let pagina = 1;
-      let achou = false;
-
-      while (!achou) {
-        const resposta = await axios.get(`https://www.bling.com.br/Api/v3/produtos?page=${pagina}&limit=100`, {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
-
-        const produtos = resposta.data?.data || [];
-        produtoResumo = produtos.find(p => String(p.gtin).trim() == valorSanitizado);
-        if (produtoResumo) break;
-        if (produtos.length < 100) break;
-        pagina++;
-      }
-    } else {
-      return res.status(400).json({ mensagem: "Tipo de busca inválido." });
-    }
-
-    if (!produtoResumo) return res.status(404).json({ mensagem: "Produto não encontrado." });
+    const produtoResumo = resposta.data?.data?.[0];
+    if (!produtoResumo) throw new Error("Produto não encontrado.");
 
     const detalhes = await axios.get(`https://www.bling.com.br/Api/v3/produtos/${produtoResumo.id}`, {
       headers: { Authorization: `Bearer ${accessToken}` },
@@ -134,15 +99,7 @@ app.get("/buscar-produto", async (req, res) => {
     const produtoCompleto = detalhes.data?.data;
     const localizacao = produtoCompleto.estoque?.localizacao || "";
     const imagens = produtoCompleto.imagens || [];
-    let primeiraImagem = imagens[0]?.link || null;
-
-    if (primeiraImagem?.includes("lh3.googleusercontent.com/d/")) {
-      const match = primeiraImagem.match(/\/d\/([^/]+)/);
-      if (match && match[1]) {
-        const id = match[1];
-        primeiraImagem = `https://drive.google.com/uc?id=${id}`;
-      }
-    }
+    const primeiraImagem = imagens[0]?.link || null;
 
     res.json({
       retorno: {
@@ -151,19 +108,22 @@ app.get("/buscar-produto", async (req, res) => {
           nome: produtoResumo.nome,
           localizacao,
           imagem: primeiraImagem,
-        },
-      },
+        }
+      }
     });
-
   } catch (erro) {
     console.error("❌ Erro ao buscar produto:", erro.response?.data || erro.message);
     res.status(500).json({ mensagem: "Erro ao buscar produto." });
   }
 });
 
+// ... (demais rotas permanecem iguais)
+
+
+// Atualizar localização
 app.post("/atualizar-localizacao", async (req, res) => {
   const { produtoId, localizacao } = req.body;
-  if (!verificarTokenValido()) return res.status(403).json({ mensagem: "Faça login via /auth." });
+  if (!accessToken) return res.status(403).json({ mensagem: "Faça login via /auth." });
   if (!produtoId || typeof localizacao !== "string") return res.status(400).json({ mensagem: "Dados inválidos." });
 
   try {
@@ -172,21 +132,17 @@ app.post("/atualizar-localizacao", async (req, res) => {
     });
 
     const produtoAtual = respostaBusca.data?.data;
-    if (!produtoAtual) throw new Error("Produto não encontrado.");
 
     const produtoAtualizado = {
       nome: produtoAtual.nome,
-      tipo: produtoAtual.tipo,
-      situacao: produtoAtual.situacao,
-      unidade: produtoAtual.unidade || "UN",
       codigo: produtoAtual.codigo,
-      descricao: produtoAtual.descricao || "",
-      gtin: produtoAtual.gtin || "",
-      marca: produtoAtual.marca || "",
-      categoria: produtoAtual.categoria?.id ? { id: produtoAtual.categoria.id } : undefined,
+      preco: produtoAtual.preco,
+      unidade: produtoAtual.unidade,
+      formato: produtoAtual.formato,
+      tipo: produtoAtual.tipo,
       estoque: {
-        localizacao: localizacao,
-      },
+        localizacao: localizacao
+      }
     };
 
     await axios.put(
@@ -201,7 +157,6 @@ app.post("/atualizar-localizacao", async (req, res) => {
     );
 
     res.json({ mensagem: "Localização atualizada com sucesso!" });
-
   } catch (erro) {
     console.error("❌ Erro ao atualizar localização:", erro.response?.data || erro.message);
     res.status(500).json({ mensagem: "Erro ao atualizar localização." });

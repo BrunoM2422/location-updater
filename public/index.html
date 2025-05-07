@@ -10,12 +10,7 @@
     <h1>Atualizar Localização de Produto</h1>
 
     <form id="form-buscar">
-      <label for="tipo-busca">Buscar por:</label>
-      <select id="tipo-busca">
-        <option value="sku">SKU</option>
-        <option value="ean">EAN</option>
-      </select>
-      <input type="text" id="valor-busca" placeholder="Digite o SKU ou EAN" required>
+      <input type="text" id="sku" placeholder="Digite o SKU do produto" required>
       <button type="submit">Buscar Produto</button>
     </form>
 
@@ -24,6 +19,7 @@
       <p><strong>Imagem:</strong></p>
       <img id="imagem-produto" src="" alt="Imagem do Produto" style="max-width: 200px; display: none;" />
       <p><strong>Localização atual:</strong> <span id="localizacao-atual"></span></p>
+
 
       <form id="form-atualizar">
         <input type="text" id="localizacao" placeholder="Nova Localização" required>
