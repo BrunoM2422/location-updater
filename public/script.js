@@ -19,21 +19,19 @@ formBuscar.addEventListener("submit", async (e) => {
     document.getElementById("info-produto").style.display = "block";
     document.getElementById("nome-produto").innerText = produto.nome;
     document.getElementById("localizacao-atual").innerText = produto.localizacao?.trim() || "(vazio)";
-    
+    document.getElementById("quantidade-produto").innerText = produto.quantidade ?? "(indisponível)";
+
     const imagemEl = document.getElementById("imagem-produto");
 
-console.log("🔎 Produto recebido:", produto);
-
-if (produto.imagem && produto.imagem.startsWith("http")) {
-  imagemEl.src = produto.imagem;
-  imagemEl.alt = "Imagem do Produto";
-  imagemEl.style.display = "block";
-} else {
-  imagemEl.src = "";
-  imagemEl.alt = "Imagem não disponível";
-  imagemEl.style.display = "none";
-}
-
+    if (produto.imagem && produto.imagem.startsWith("http")) {
+      imagemEl.src = produto.imagem;
+      imagemEl.alt = "Imagem do Produto";
+      imagemEl.style.display = "block";
+    } else {
+      imagemEl.src = "";
+      imagemEl.alt = "Imagem não disponível";
+      imagemEl.style.display = "none";
+    }
 
     produtoId = produto.id;
   } catch (erro) {

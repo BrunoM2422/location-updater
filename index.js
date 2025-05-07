@@ -14,17 +14,14 @@ app.use(express.static("public"));
 let accessToken = "";
 let logado = false;
 
-// Login fixo
 const USUARIO = "admin";
 const SENHA = "1234";
 
-// Middleware de login
 app.get("/", (req, res) => {
   if (!logado) return res.redirect("/login");
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-// Página de login
 app.get("/login", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "login.html"));
 });
@@ -39,7 +36,6 @@ app.post("/login", (req, res) => {
   }
 });
 
-// OAuth Bling
 app.get("/auth", (req, res) => {
   const state = Math.random().toString(36).substring(2);
   const redirectUrl = `https://www.bling.com.br/Api/v3/oauth/authorize?response_type=code&client_id=${process.env.BLING_CLIENT_ID}&redirect_uri=${process.env.REDIRECT_URI}&scope=produtos_write&state=${state}`;
@@ -77,19 +73,24 @@ app.get("/callback", async (req, res) => {
   }
 });
 
-// Buscar produto
-// ... (importações e configuração inicial permanecem iguais)
-
-app.get("/buscar-produto/:sku", async (req, res) => {
-  const { sku } = req.params;
+app.get("/buscar-produto/:codigo", async (req, res) => {
+  const { codigo } = req.params;
   if (!accessToken) return res.status(403).json({ mensagem: "Faça login via /auth." });
 
   try {
-    const resposta = await axios.get(`https://www.bling.com.br/Api/v3/produtos?sku=${sku}`, {
+    let resposta = await axios.get(`https://www.bling.com.br/Api/v3/produtos?sku=${codigo}`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
 
-    const produtoResumo = resposta.data?.data?.[0];
+    let produtoResumo = resposta.data?.data?.[0];
+
+    if (!produtoResumo) {
+      resposta = await axios.get(`https://www.bling.com.br/Api/v3/produtos?gtin=${codigo}`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      produtoResumo = resposta.data?.data?.[0];
+    }
+
     if (!produtoResumo) throw new Error("Produto não encontrado.");
 
     const detalhes = await axios.get(`https://www.bling.com.br/Api/v3/produtos/${produtoResumo.id}`, {
@@ -100,6 +101,7 @@ app.get("/buscar-produto/:sku", async (req, res) => {
     const localizacao = produtoCompleto.estoque?.localizacao || "";
     const imagens = produtoCompleto.imagens || [];
     const primeiraImagem = imagens[0]?.link || null;
+    const quantidadeEstoque = produtoCompleto.estoque?.saldo?.disponivel || 0;
 
     res.json({
       retorno: {
@@ -108,6 +110,7 @@ app.get("/buscar-produto/:sku", async (req, res) => {
           nome: produtoResumo.nome,
           localizacao,
           imagem: primeiraImagem,
+          quantidade: quantidadeEstoque
         }
       }
     });
@@ -117,10 +120,6 @@ app.get("/buscar-produto/:sku", async (req, res) => {
   }
 });
 
-// ... (demais rotas permanecem iguais)
-
-
-// Atualizar localização
 app.post("/atualizar-localizacao", async (req, res) => {
   const { produtoId, localizacao } = req.body;
   if (!accessToken) return res.status(403).json({ mensagem: "Faça login via /auth." });
@@ -132,6 +131,10 @@ app.post("/atualizar-localizacao", async (req, res) => {
     });
 
     const produtoAtual = respostaBusca.data?.data;
+
+    if (produtoAtual.tipo !== "P") {
+      return res.status(400).json({ mensagem: "Este tipo de produto (kit/variação) não pode ser atualizado diretamente." });
+    }
 
     const produtoAtualizado = {
       nome: produtoAtual.nome,
