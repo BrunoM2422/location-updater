@@ -98,11 +98,35 @@ app.get("/buscar-produto/:codigo", async (req, res) => {
     });
 
     const produtoCompleto = detalhes.data?.data;
-    const localizacao = produtoCompleto.estoque?.localizacao || "";
-    const imagens = produtoCompleto.imagens || [];
-    const primeiraImagem = imagens[0]?.link || null;
-    const quantidadeEstoque = produtoCompleto.estoque?.saldos?.[0]?.disponivel ?? 0;
 
+    // DEBUG: Mostra estrutura completa no terminal
+    console.log("📦 Detalhes completos do produto:", JSON.stringify(produtoCompleto, null, 2));
+
+    // Lógica para extrair imagem, localizacao e estoque corretamente
+    let localizacao = "";
+    let imagens = [];
+    let quantidadeEstoque = 0;
+
+    if (produtoCompleto.estoque?.localizacao || produtoCompleto.estoque?.saldos) {
+      localizacao = produtoCompleto.estoque.localizacao || "";
+      imagens = produtoCompleto.imagens || [];
+      quantidadeEstoque = produtoCompleto.estoque.saldos?.reduce(
+        (soma, s) => soma + (s.disponivel ?? 0),
+        0
+      ) ?? 0;
+    } else if (produtoCompleto.variacoes?.length > 0) {
+      const primeiraVar = produtoCompleto.variacoes[0];
+
+      localizacao = primeiraVar.estoque?.localizacao || "";
+      imagens = primeiraVar.imagens || produtoCompleto.imagens || [];
+
+      quantidadeEstoque = primeiraVar.estoque?.saldos?.reduce(
+        (soma, s) => soma + (s.disponivel ?? 0),
+        0
+      ) ?? 0;
+    }
+
+    const primeiraImagem = imagens[0]?.link || null;
 
     res.json({
       retorno: {
@@ -120,6 +144,7 @@ app.get("/buscar-produto/:codigo", async (req, res) => {
     res.status(500).json({ mensagem: "Erro ao buscar produto." });
   }
 });
+
 
 app.post("/atualizar-localizacao", async (req, res) => {
   const { produtoId, localizacao } = req.body;
