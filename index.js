@@ -174,16 +174,19 @@ app.post("/atualizar-localizacao", async (req, res) => {
                   Array.isArray(est.componentes) &&
                   est.componentes.length > 0;
 
-    if (isKit) {
-      // injeta o bloco completo de estrutura no payload
-      payload.estrutura = {
-        tipoEstoque,                          // dentro da estrutura também
-        lancamentoEstoque: est.lancamentoEstoque || "",
-        componentes: est.componentes.map(c => ({
-          produto: { id: c.produto.id },
-          quantidade: c.quantidade
-        }))
-      };
+                  if (isKit) {
+                    payload.estrutura = {
+                      tipoEstoque, // ainda pode ser necessário aqui também
+                      lancamentoEstoque: ["P", "M", "A"].includes(est.lancamentoEstoque)
+                        ? est.lancamentoEstoque
+                        : "P", // evita erro 21
+                      componentes: est.componentes.map(c => ({
+                        produto: { id: c.produto.id },
+                        quantidade: c.quantidade
+                      }))
+                    };
+                  }
+                  
     }
 
     // 5) Chama a API de atualização
