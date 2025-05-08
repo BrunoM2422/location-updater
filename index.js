@@ -78,31 +78,69 @@ app.get("/buscar-produto/:codigo", async (req, res) => {
   if (!accessToken) return res.status(403).json({ mensagem: "Faça login via /auth." });
 
   try {
-    // Tenta buscar por SKU
-    let resposta = await axios.get(`https://www.bling.com.br/Api/v3/produtos?sku=${codigo}`, {
+    let produtoResumo = null;
+
+    // Tenta buscar por SKU primeiro
+    const respostaSKU = await axios.get(`https://www.bling.com.br/Api/v3/produtos?sku=${codigo}`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
 
-    let produtoResumo = resposta.data?.data?.[0];
+    produtoResumo = respostaSKU.data?.data?.[0];
 
-    // Se não achou por SKU e parece ser um EAN/GTIN, tenta buscar por GTIN
+    // Se não encontrou por SKU e parece um GTIN válido
     if (!produtoResumo && /^[0-9]{8,14}$/.test(codigo)) {
-      resposta = await axios.get(`https://www.bling.com.br/Api/v3/produtos?gtin=${codigo}`, {
+      const respostaGTIN = await axios.get(`https://www.bling.com.br/Api/v3/produtos?gtin=${codigo}`, {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
 
-      const listaProdutos = resposta.data?.data || [];
+      const produtos = respostaGTIN.data?.data || [];
 
-      produtoResumo = listaProdutos.find(p =>
-        p.gtin === codigo ||
-        p.gtinEmbalagem === codigo ||
-        p.codigo === codigo
-      );
+      // 1. Verifica se o GTIN está no produto principal
+      produtoResumo = produtos.find(p => p.gtin === codigo);
+
+      // 2. Se não achou, tenta dentro das variações
+      if (!produtoResumo) {
+        for (const produto of produtos) {
+          const detalhes = await axios.get(`https://www.bling.com.br/Api/v3/produtos/${produto.id}`, {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          });
+
+          const variacoes = detalhes.data?.data?.variacoes || [];
+
+          const variacaoComGTIN = variacoes.find(v => v.gtin === codigo);
+          if (variacaoComGTIN) {
+            produtoResumo = {
+              ...produto,
+              id: produto.id,
+              nome: `${produto.nome} - ${variacaoComGTIN.nome}`,
+              imagem: produto.midia?.imagens?.externas?.[0]?.link || null,
+              localizacao: variacaoComGTIN.estoque?.localizacao || "",
+              quantidade: variacaoComGTIN.estoque?.saldoVirtualTotal ?? 0,
+            };
+            break;
+          }
+        }
+      }
     }
 
-    if (!produtoResumo) return res.status(404).json({ mensagem: "Produto não encontrado por SKU ou GTIN." });
+    if (!produtoResumo) throw new Error("Produto não encontrado.");
 
-    // Buscar detalhes do produto
+    // Se já pegou tudo da variação acima, não precisa buscar de novo
+    if (produtoResumo.quantidade !== undefined) {
+      return res.json({
+        retorno: {
+          produto: {
+            id: produtoResumo.id,
+            nome: produtoResumo.nome,
+            localizacao: produtoResumo.localizacao,
+            imagem: produtoResumo.imagem,
+            quantidade: produtoResumo.quantidade,
+          }
+        }
+      });
+    }
+
+    // Buscar detalhes do produto principal
     const detalhes = await axios.get(`https://www.bling.com.br/Api/v3/produtos/${produtoResumo.id}`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
@@ -120,7 +158,7 @@ app.get("/buscar-produto/:codigo", async (req, res) => {
           nome: produtoResumo.nome,
           localizacao,
           imagem: primeiraImagem,
-          quantidade: quantidadeEstoque
+          quantidade: quantidadeEstoque,
         }
       }
     });
@@ -129,8 +167,6 @@ app.get("/buscar-produto/:codigo", async (req, res) => {
     res.status(500).json({ mensagem: "Erro ao buscar produto." });
   }
 });
-
-
 
 
 app.post("/atualizar-localizacao", async (req, res) => {
