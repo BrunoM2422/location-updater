@@ -129,29 +129,22 @@ app.post("/atualizar-localizacao", async (req, res) => {
   if (!accessToken) {
     return res.status(403).json({ mensagem: "Faça login via /auth." });
   }
-
   if (!produtoId || typeof localizacao !== "string") {
     return res.status(400).json({ mensagem: "Dados inválidos." });
   }
 
   try {
-    const respostaBusca = await axios.get(`https://www.bling.com.br/Api/v3/produtos/${produtoId}`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-
+    // 1. Busca os dados atuais do produto
+    const respostaBusca = await axios.get(
+      `https://www.bling.com.br/Api/v3/produtos/${produtoId}`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
     const produtoAtual = respostaBusca.data?.data;
-
     if (!produtoAtual) {
       return res.status(404).json({ mensagem: "Produto não encontrado." });
     }
 
-    // Corrige tipoEstoque
-    let tipoEstoque = produtoAtual.tipoEstoque;
-    if (tipoEstoque !== "F" && tipoEstoque !== "V") {
-      tipoEstoque = "F"; // valor padrão
-    }
-
-    // Prepara objeto para atualização
+    // 2. Monta o payload básico
     const produtoAtualizado = {
       nome: produtoAtual.nome,
       codigo: produtoAtual.codigo,
@@ -159,62 +152,70 @@ app.post("/atualizar-localizacao", async (req, res) => {
       unidade: produtoAtual.unidade,
       formato: produtoAtual.formato,
       tipo: produtoAtual.tipo,
-      tipoEstoque,
       estoque: {
         localizacao,
+        // mantém saldo e quantidade atuais
         saldo: produtoAtual.estoque?.saldo ?? 0,
-        quantidade: produtoAtual.estoque?.quantidade ?? 0,
+        quantidade: produtoAtual.estoque?.quantidade ?? 0
       },
       pesoLiquido: produtoAtual.pesoLiquido ?? 0,
-      pesoBruto: produtoAtual.pesoBruto ?? 0,
+      pesoBruto: produtoAtual.pesoBruto ?? 0
     };
 
-    // Se for produto com composição, estrutura é obrigatória
+    // 3. Se for kit/composição, torna obrigatória a estrutura completa
     if (produtoAtual.formato === "Composição") {
+      const est = produtoAtual.estrutura;
+      // valida existência de array de componentes
       if (
-        !produtoAtual.estrutura ||
-        !Array.isArray(produtoAtual.estrutura) ||
-        produtoAtual.estrutura.length === 0
+        !est ||
+        typeof est !== "object" ||
+        !Array.isArray(est.componentes) ||
+        est.componentes.length === 0
       ) {
         return res.status(400).json({
           mensagem:
-            "Produto com formato 'Composição' precisa ter ao menos um componente na estrutura.",
+            "Kit/composição precisa de componentes definidos em `estrutura.componentes`."
         });
       }
-
-      produtoAtualizado.estrutura = produtoAtual.estrutura;
+      // força tipoEstoque dentro de estrutura (Físico)
+      produtoAtualizado.estrutura = {
+        tipoEstoque: "F",
+        lancamentoEstoque: est.lancamentoEstoque || "",
+        componentes: est.componentes.map(c => ({
+          produto: { id: c.produto.id },
+          quantidade: c.quantidade
+        }))
+      };
     }
 
+    // 4. Envia o PUT para atualizar
     await axios.put(
       `https://www.bling.com.br/Api/v3/produtos/${produtoId}`,
       produtoAtualizado,
       {
         headers: {
           Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
+          "Content-Type": "application/json"
+        }
       }
     );
 
-    res.json({ mensagem: "Localização atualizada com sucesso!" });
+    return res.json({ mensagem: "Localização atualizada com sucesso!" });
   } catch (erro) {
-    const errorData = erro.response?.data || erro.message;
-    console.error("❌ Erro ao atualizar localização:", errorData);
-
-    if (errorData?.error?.fields) {
-      errorData.error.fields.forEach((field, i) => {
-        console.error(`🔍 Erro no campo ${i + 1}:`, field);
-      });
+    // Log detalhado
+    const detalhe = erro.response?.data || erro.message;
+    console.error("❌ Erro ao atualizar localização:", detalhe);
+    if (detalhe.error?.fields) {
+      detalhe.error.fields.forEach((f, i) =>
+        console.error(`🔍 Field ${i + 1}:`, f)
+      );
     }
-
-    res.status(500).json({
+    return res.status(500).json({
       mensagem: "Erro ao atualizar localização.",
-      detalhe: errorData,
+      detalhe
     });
   }
 });
-
-
 
 
 const PORT = process.env.PORT || 3000;
