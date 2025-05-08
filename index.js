@@ -125,20 +125,28 @@ app.get("/buscar-produto/:codigo", async (req, res) => {
 
 app.post("/atualizar-localizacao", async (req, res) => {
   const { produtoId, localizacao } = req.body;
-  if (!accessToken) return res.status(403).json({ mensagem: "Faça login via /auth." });
-  if (!produtoId || typeof localizacao !== "string") return res.status(400).json({ mensagem: "Dados inválidos." });
+
+  if (!accessToken) {
+    return res.status(403).json({ mensagem: "Faça login via /auth." });
+  }
+
+  if (!produtoId || typeof localizacao !== "string") {
+    return res.status(400).json({ mensagem: "Dados inválidos." });
+  }
 
   try {
+    // Buscar dados do produto atual
     const respostaBusca = await axios.get(`https://www.bling.com.br/Api/v3/produtos/${produtoId}`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
 
     const produtoAtual = respostaBusca.data?.data;
 
-    if (produtoAtual.tipo !== "P") {
-      return res.status(400).json({ mensagem: "Este tipo de produto (kit/variação) não pode ser atualizado diretamente." });
+    if (!produtoAtual) {
+      return res.status(404).json({ mensagem: "Produto não encontrado." });
     }
 
+    // Montar objeto de atualização
     const produtoAtualizado = {
       nome: produtoAtual.nome,
       codigo: produtoAtual.codigo,
@@ -146,14 +154,25 @@ app.post("/atualizar-localizacao", async (req, res) => {
       unidade: produtoAtual.unidade,
       formato: produtoAtual.formato,
       tipo: produtoAtual.tipo,
+      tipoEstoque: produtoAtual.tipoEstoque ?? "F",
       estoque: {
-        localizacao: localizacao,
+        localizacao,
         saldo: produtoAtual.estoque?.saldo ?? 0,
         quantidade: produtoAtual.estoque?.quantidade ?? 0
       },
       pesoLiquido: produtoAtual.pesoLiquido ?? 0,
       pesoBruto: produtoAtual.pesoBruto ?? 0
     };
+
+    // Se for produto com composição, inclua estrutura obrigatoriamente
+    if (produtoAtual.formato === "Composição") {
+      if (!produtoAtual.estrutura || produtoAtual.estrutura.length === 0) {
+        return res.status(400).json({
+          mensagem: "Produto com composição precisa ter estrutura (componentes)."
+        });
+      }
+      produtoAtualizado.estrutura = produtoAtual.estrutura;
+    }
 
     await axios.put(
       `https://www.bling.com.br/Api/v3/produtos/${produtoId}`,
@@ -167,6 +186,7 @@ app.post("/atualizar-localizacao", async (req, res) => {
     );
 
     res.json({ mensagem: "Localização atualizada com sucesso!" });
+
   } catch (erro) {
     const errorData = erro.response?.data || erro.message;
     console.error("❌ Erro ao atualizar localização:", errorData);
@@ -180,6 +200,7 @@ app.post("/atualizar-localizacao", async (req, res) => {
     res.status(500).json({ mensagem: "Erro ao atualizar localização.", detalhe: errorData });
   }
 });
+
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`✅ Servidor rodando na porta ${PORT}`));
