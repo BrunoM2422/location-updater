@@ -145,11 +145,13 @@ app.post("/atualizar-localizacao", async (req, res) => {
       return res.status(404).json({ mensagem: "Produto não encontrado." });
     }
 
-    // Verifica e define tipoEstoque corretamente
-    const tipoEstoqueValido = ["F", "V"].includes(produtoAtual.tipoEstoque)
-      ? produtoAtual.tipoEstoque
-      : "F";
+    // Corrige tipoEstoque
+    let tipoEstoque = produtoAtual.tipoEstoque;
+    if (tipoEstoque !== "F" && tipoEstoque !== "V") {
+      tipoEstoque = "F"; // valor padrão
+    }
 
+    // Prepara objeto para atualização
     const produtoAtualizado = {
       nome: produtoAtual.nome,
       codigo: produtoAtual.codigo,
@@ -157,7 +159,7 @@ app.post("/atualizar-localizacao", async (req, res) => {
       unidade: produtoAtual.unidade,
       formato: produtoAtual.formato,
       tipo: produtoAtual.tipo,
-      tipoEstoque: tipoEstoqueValido,
+      tipoEstoque,
       estoque: {
         localizacao,
         saldo: produtoAtual.estoque?.saldo ?? 0,
@@ -167,12 +169,16 @@ app.post("/atualizar-localizacao", async (req, res) => {
       pesoBruto: produtoAtual.pesoBruto ?? 0,
     };
 
-    // Se for composição, obrigatoriamente envia estrutura
+    // Se for produto com composição, estrutura é obrigatória
     if (produtoAtual.formato === "Composição") {
-      if (!Array.isArray(produtoAtual.estrutura) || produtoAtual.estrutura.length === 0) {
+      if (
+        !produtoAtual.estrutura ||
+        !Array.isArray(produtoAtual.estrutura) ||
+        produtoAtual.estrutura.length === 0
+      ) {
         return res.status(400).json({
           mensagem:
-            "Produto do tipo 'Composição' precisa ter ao menos um componente (estrutura).",
+            "Produto com formato 'Composição' precisa ter ao menos um componente na estrutura.",
         });
       }
 
@@ -207,6 +213,7 @@ app.post("/atualizar-localizacao", async (req, res) => {
     });
   }
 });
+
 
 
 
