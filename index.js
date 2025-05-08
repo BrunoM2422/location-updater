@@ -153,9 +153,15 @@ app.post("/atualizar-localizacao", async (req, res) => {
       formato: produtoAtual.formato,
       tipo: produtoAtual.tipo,
       estoque: {
-        localizacao: localizacao
-      }
+        localizacao: localizacao,
+        saldo: produtoAtual.estoque?.saldo ?? 0,
+        quantidade: produtoAtual.estoque?.quantidade ?? 0
+      },
+      // Inclua peso e outros campos se existirem
+      pesoLiquido: produtoAtual.pesoLiquido ?? 0,
+      pesoBruto: produtoAtual.pesoBruto ?? 0
     };
+    
 
     await axios.put(
       `https://www.bling.com.br/Api/v3/produtos/${produtoId}`,
@@ -170,10 +176,19 @@ app.post("/atualizar-localizacao", async (req, res) => {
 
     res.json({ mensagem: "Localização atualizada com sucesso!" });
   } catch (erro) {
-    console.error("❌ Erro ao atualizar localização:", erro.response?.data || erro.message);
-    res.status(500).json({ mensagem: "Erro ao atualizar localização." });
+    const errorData = erro.response?.data || erro.message;
+    console.error("❌ Erro ao atualizar localização:", errorData);
+  
+    // Log extra se for erro de validação
+    if (errorData?.error?.fields) {
+      errorData.error.fields.forEach((field, i) => {
+        console.error(`🔍 Erro no campo ${i + 1}:`, field);
+      });
+    }
+  
+    res.status(500).json({ mensagem: "Erro ao atualizar localização.", detalhe: errorData });
   }
-});
+  
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`✅ Servidor rodando na porta ${PORT}`));
