@@ -145,11 +145,18 @@ app.post("/atualizar-localizacao", async (req, res) => {
       return res.status(400).json({ mensagem: "Este tipo de produto (kit/variação) não pode ser atualizado diretamente." });
     }
 
+    const unidadesValidas = [
+      "un", "cx", "pct", "lt", "kg", "g", "ml", "m", "cm", "par", "m2", "rolo", "kit"
+    ];
+
+    const unidadeProduto = (produtoAtual.unidade || "").toLowerCase();
+    const unidadeFinal = unidadesValidas.includes(unidadeProduto) ? unidadeProduto : "un";
+
     const produtoAtualizado = {
       nome: produtoAtual.nome,
       codigo: produtoAtual.codigo,
       preco: produtoAtual.preco,
-      unidade: produtoAtual.unidade,
+      unidade: unidadeFinal,
       formato: produtoAtual.formato,
       tipo: produtoAtual.tipo,
       estoque: {
@@ -174,6 +181,7 @@ app.post("/atualizar-localizacao", async (req, res) => {
     res.status(500).json({ mensagem: "Erro ao atualizar localização." });
   }
 });
+
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`✅ Servidor rodando na porta ${PORT}`));
