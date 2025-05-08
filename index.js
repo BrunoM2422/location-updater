@@ -169,25 +169,26 @@ app.post("/atualizar-localizacao", async (req, res) => {
     };
 
     // 4) Detecta se é kit/composição (estrutura com componentes)
-    const est = produtoAtual.estrutura;
-    const isKit = est &&
-                  Array.isArray(est.componentes) &&
-                  est.componentes.length > 0;
+    // 4) Detecta se é kit/composição (estrutura com componentes)
+const est = produtoAtual.estrutura;
+const isKit = est &&
+              Array.isArray(est.componentes) &&
+              est.componentes.length > 0;
 
-                  if (isKit) {
-                    payload.estrutura = {
-                      tipoEstoque, // ainda pode ser necessário aqui também
-                      lancamentoEstoque: ["P", "M", "A"].includes(est.lancamentoEstoque)
-                        ? est.lancamentoEstoque
-                        : "P", // evita erro 21
-                      componentes: est.componentes.map(c => ({
-                        produto: { id: c.produto.id },
-                        quantidade: c.quantidade
-                      }))
-                    };
-                  }
-                  
-    }
+if (isKit) {
+  // injeta o bloco completo de estrutura no payload
+  payload.estrutura = {
+    tipoEstoque, // ainda necessário aqui
+    lancamentoEstoque: ["P", "M", "A"].includes(est.lancamentoEstoque)
+      ? est.lancamentoEstoque
+      : "P", // fallback seguro
+    componentes: est.componentes.map(c => ({
+      produto: { id: c.produto.id },
+      quantidade: c.quantidade
+    }))
+  };
+}
+
 
     // 5) Chama a API de atualização
     await axios.put(
