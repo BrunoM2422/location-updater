@@ -135,7 +135,6 @@ app.post("/atualizar-localizacao", async (req, res) => {
   }
 
   try {
-    // Buscar dados do produto atual
     const respostaBusca = await axios.get(`https://www.bling.com.br/Api/v3/produtos/${produtoId}`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
@@ -146,7 +145,11 @@ app.post("/atualizar-localizacao", async (req, res) => {
       return res.status(404).json({ mensagem: "Produto não encontrado." });
     }
 
-    // Montar objeto de atualização
+    // Verifica e define tipoEstoque corretamente
+    const tipoEstoqueValido = ["F", "V"].includes(produtoAtual.tipoEstoque)
+      ? produtoAtual.tipoEstoque
+      : "F";
+
     const produtoAtualizado = {
       nome: produtoAtual.nome,
       codigo: produtoAtual.codigo,
@@ -154,23 +157,25 @@ app.post("/atualizar-localizacao", async (req, res) => {
       unidade: produtoAtual.unidade,
       formato: produtoAtual.formato,
       tipo: produtoAtual.tipo,
-      tipoEstoque: produtoAtual.tipoEstoque ?? "F",
+      tipoEstoque: tipoEstoqueValido,
       estoque: {
         localizacao,
         saldo: produtoAtual.estoque?.saldo ?? 0,
-        quantidade: produtoAtual.estoque?.quantidade ?? 0
+        quantidade: produtoAtual.estoque?.quantidade ?? 0,
       },
       pesoLiquido: produtoAtual.pesoLiquido ?? 0,
-      pesoBruto: produtoAtual.pesoBruto ?? 0
+      pesoBruto: produtoAtual.pesoBruto ?? 0,
     };
 
-    // Se for produto com composição, inclua estrutura obrigatoriamente
+    // Se for composição, obrigatoriamente envia estrutura
     if (produtoAtual.formato === "Composição") {
-      if (!produtoAtual.estrutura || produtoAtual.estrutura.length === 0) {
+      if (!Array.isArray(produtoAtual.estrutura) || produtoAtual.estrutura.length === 0) {
         return res.status(400).json({
-          mensagem: "Produto com composição precisa ter estrutura (componentes)."
+          mensagem:
+            "Produto do tipo 'Composição' precisa ter ao menos um componente (estrutura).",
         });
       }
+
       produtoAtualizado.estrutura = produtoAtual.estrutura;
     }
 
@@ -186,7 +191,6 @@ app.post("/atualizar-localizacao", async (req, res) => {
     );
 
     res.json({ mensagem: "Localização atualizada com sucesso!" });
-
   } catch (erro) {
     const errorData = erro.response?.data || erro.message;
     console.error("❌ Erro ao atualizar localização:", errorData);
@@ -197,9 +201,13 @@ app.post("/atualizar-localizacao", async (req, res) => {
       });
     }
 
-    res.status(500).json({ mensagem: "Erro ao atualizar localização.", detalhe: errorData });
+    res.status(500).json({
+      mensagem: "Erro ao atualizar localização.",
+      detalhe: errorData,
+    });
   }
 });
+
 
 
 const PORT = process.env.PORT || 3000;
