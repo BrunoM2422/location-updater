@@ -148,14 +148,20 @@ app.post("/atualizar-localizacao", async (req, res) => {
       return res.status(404).json({ mensagem: "Produto não encontrado." });
     }
 
-    // 2) Altera apenas a localização, mantendo o resto do estoque intacto
+    const {
+      camposCustomizados, // <-- provável vilão
+      info,               // <-- metadados internos do Bling
+      ...dadosLimpos
+    } = produtoAtual;
+    
     const payload = {
-      ...produtoAtual,
+      ...dadosLimpos,
       estoque: {
         ...(produtoAtual.estoque || {}),
         localizacao
       }
     };
+    
 
     // 3) Atualiza o produto com o corpo completo preservado
     await axios.put(
