@@ -134,27 +134,33 @@ app.post("/atualizar-localizacao", async (req, res) => {
   }
 
   try {
-    // 1. Busca os dados atuais do produto
-    const respostaBusca = await axios.get(
+    // 1) Busca o produto atual
+    const resp = await axios.get(
       `https://www.bling.com.br/Api/v3/produtos/${produtoId}`,
       { headers: { Authorization: `Bearer ${accessToken}` } }
     );
-    const produtoAtual = respostaBusca.data?.data;
+    const produtoAtual = resp.data?.data;
     if (!produtoAtual) {
       return res.status(404).json({ mensagem: "Produto não encontrado." });
     }
 
-    // 2. Monta o payload básico
-    const produtoAtualizado = {
+    // 2) Decide tipoEstoque (F padrão se inválido)
+    let tipoEstoque = produtoAtual.tipoEstoque;
+    if (tipoEstoque !== "F" && tipoEstoque !== "V") {
+      tipoEstoque = "F";
+    }
+
+    // 3) Monta o payload básico
+    const payload = {
       nome: produtoAtual.nome,
       codigo: produtoAtual.codigo,
       preco: produtoAtual.preco,
       unidade: produtoAtual.unidade,
       formato: produtoAtual.formato,
       tipo: produtoAtual.tipo,
+      tipoEstoque, // root-level
       estoque: {
         localizacao,
-        // mantém saldo e quantidade atuais
         saldo: produtoAtual.estoque?.saldo ?? 0,
         quantidade: produtoAtual.estoque?.quantidade ?? 0
       },
@@ -162,24 +168,16 @@ app.post("/atualizar-localizacao", async (req, res) => {
       pesoBruto: produtoAtual.pesoBruto ?? 0
     };
 
-    // 3. Se for kit/composição, torna obrigatória a estrutura completa
-    if (produtoAtual.formato === "Composição") {
-      const est = produtoAtual.estrutura;
-      // valida existência de array de componentes
-      if (
-        !est ||
-        typeof est !== "object" ||
-        !Array.isArray(est.componentes) ||
-        est.componentes.length === 0
-      ) {
-        return res.status(400).json({
-          mensagem:
-            "Kit/composição precisa de componentes definidos em `estrutura.componentes`."
-        });
-      }
-      // força tipoEstoque dentro de estrutura (Físico)
-      produtoAtualizado.estrutura = {
-        tipoEstoque: "F",
+    // 4) Detecta se é kit/composição (estrutura com componentes)
+    const est = produtoAtual.estrutura;
+    const isKit = est &&
+                  Array.isArray(est.componentes) &&
+                  est.componentes.length > 0;
+
+    if (isKit) {
+      // injeta o bloco completo de estrutura no payload
+      payload.estrutura = {
+        tipoEstoque,                          // dentro da estrutura também
         lancamentoEstoque: est.lancamentoEstoque || "",
         componentes: est.componentes.map(c => ({
           produto: { id: c.produto.id },
@@ -188,21 +186,21 @@ app.post("/atualizar-localizacao", async (req, res) => {
       };
     }
 
-    // 4. Envia o PUT para atualizar
+    // 5) Chama a API de atualização
     await axios.put(
       `https://www.bling.com.br/Api/v3/produtos/${produtoId}`,
-      produtoAtualizado,
+      payload,
       {
         headers: {
           Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json"
-        }
+          "Content-Type": "application/json",
+        },
       }
     );
 
     return res.json({ mensagem: "Localização atualizada com sucesso!" });
   } catch (erro) {
-    // Log detalhado
+    // log detalhado
     const detalhe = erro.response?.data || erro.message;
     console.error("❌ Erro ao atualizar localização:", detalhe);
     if (detalhe.error?.fields) {
