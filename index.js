@@ -81,16 +81,13 @@ app.get("/buscar-produto/:codigo", async (req, res) => {
     let resposta;
     let produtoResumo;
 
-    // Verifica se é GTIN (EAN) — só números e entre 8 a 14 dígitos
     const isGTIN = /^[0-9]{8,14}$/.test(codigo);
 
     if (isGTIN) {
-      // Busca por GTIN
       resposta = await axios.get(`https://www.bling.com.br/Api/v3/produtos?gtin=${codigo}`, {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
     } else {
-      // Busca por SKU
       resposta = await axios.get(`https://www.bling.com.br/Api/v3/produtos?sku=${codigo}`, {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
@@ -99,7 +96,6 @@ app.get("/buscar-produto/:codigo", async (req, res) => {
     produtoResumo = resposta.data?.data?.[0];
     if (!produtoResumo) throw new Error("Produto não encontrado.");
 
-    // Buscar detalhes do produto
     const detalhes = await axios.get(`https://www.bling.com.br/Api/v3/produtos/${produtoResumo.id}`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
@@ -117,17 +113,15 @@ app.get("/buscar-produto/:codigo", async (req, res) => {
           nome: produtoResumo.nome,
           localizacao,
           imagem: primeiraImagem,
-          quantidade: quantidadeEstoque
-        }
-      }
+          quantidade: quantidadeEstoque,
+        },
+      },
     });
   } catch (erro) {
     console.error("❌ Erro ao buscar produto:", erro.response?.data || erro.message);
     res.status(404).json({ mensagem: "Produto não encontrado." });
   }
 });
-
-
 
 app.post("/atualizar-localizacao", async (req, res) => {
   const { produtoId, localizacao } = req.body;
@@ -157,11 +151,9 @@ app.post("/atualizar-localizacao", async (req, res) => {
         saldo: produtoAtual.estoque?.saldo ?? 0,
         quantidade: produtoAtual.estoque?.quantidade ?? 0
       },
-      // Inclua peso e outros campos se existirem
       pesoLiquido: produtoAtual.pesoLiquido ?? 0,
       pesoBruto: produtoAtual.pesoBruto ?? 0
     };
-    
 
     await axios.put(
       `https://www.bling.com.br/Api/v3/produtos/${produtoId}`,
@@ -178,17 +170,15 @@ app.post("/atualizar-localizacao", async (req, res) => {
   } catch (erro) {
     const errorData = erro.response?.data || erro.message;
     console.error("❌ Erro ao atualizar localização:", errorData);
-  
-    // Log extra se for erro de validação
+
     if (errorData?.error?.fields) {
       errorData.error.fields.forEach((field, i) => {
         console.error(`🔍 Erro no campo ${i + 1}:`, field);
       });
     }
-  
+
     res.status(500).json({ mensagem: "Erro ao atualizar localização.", detalhe: errorData });
   }
-  
 });
 
 const PORT = process.env.PORT || 3000;
