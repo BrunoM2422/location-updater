@@ -8,7 +8,8 @@ let produtoId = null;
 formBuscar.addEventListener("submit", async (e) => {
   e.preventDefault();
 
-  const sku = document.getElementById("sku").value;
+  const sku = document.getElementById("sku").value.trim();
+  document.getElementById("mensagem").innerText = ""; // Limpa mensagem anterior
 
   try {
     const resposta = await fetch(`${apiBaseUrl}/buscar-produto/${sku}`);
