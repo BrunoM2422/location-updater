@@ -126,7 +126,25 @@ app.get("/buscar-produto/:codigo", async (req, res) => {
     const produtoCompleto = detalhes.data?.data;
 
     const localizacao = produtoCompleto.estoque?.localizacao || "";
-    const primeiraImagem = produtoCompleto
+    const primeiraImagem = produtoCompleto.midia?.imagens?.externas?.[0]?.link || null;
+    const quantidadeEstoque = produtoCompleto.estoque?.saldoVirtualTotal ?? 0;
+
+    res.json({
+      retorno: {
+        produto: {
+          id: produtoResumo.id,
+          nome: produtoResumo.nome,
+          localizacao,
+          imagem: primeiraImagem,
+          quantidade: quantidadeEstoque
+        }
+      }
+    });
+  } catch (erro) {
+    console.error("❌ Erro ao buscar produto:", erro.response?.data || erro.message);
+    res.status(404).json({ mensagem: "Produto não encontrado." });
+  }
+});
 
 
 
