@@ -73,17 +73,15 @@ app.get("/callback", async (req, res) => {
   }
 });
 
-app.get("/buscar-produto/:codigo", async (req, res) => {
-  const { codigo } = req.params;
+app.get("/buscar-produto/:tipo/:codigo", async (req, res) => {
+  const { tipo, codigo } = req.params;
   if (!accessToken) return res.status(403).json({ mensagem: "Faça login via /auth." });
 
   try {
     let resposta;
     let produtoResumo;
 
-    const isGTIN = /^[0-9]{8,14}$/.test(codigo);
-
-    if (isGTIN) {
+    if (tipo === "ean") {
       resposta = await axios.get(`https://www.bling.com.br/Api/v3/produtos?gtin=${codigo}`, {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
@@ -122,6 +120,7 @@ app.get("/buscar-produto/:codigo", async (req, res) => {
     res.status(404).json({ mensagem: "Produto não encontrado." });
   }
 });
+
 
 app.post("/atualizar-localizacao", async (req, res) => {
   const { produtoId, localizacao } = req.body;

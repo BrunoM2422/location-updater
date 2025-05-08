@@ -8,11 +8,13 @@ let produtoId = null;
 formBuscar.addEventListener("submit", async (e) => {
   e.preventDefault();
 
-  const sku = document.getElementById("sku").value.trim();
-  document.getElementById("mensagem").innerText = ""; // Limpa mensagem anterior
+  const tipo = document.getElementById("tipo-codigo").value;
+  const codigo = document.getElementById("codigo").value.trim();
+
+  document.getElementById("mensagem").innerText = "";
 
   try {
-    const resposta = await fetch(`${apiBaseUrl}/buscar-produto/${sku}`);
+    const resposta = await fetch(`${apiBaseUrl}/buscar-produto/${tipo}/${codigo}`);
     const dados = await resposta.json();
 
     const produto = dados.retorno.produto;
@@ -40,6 +42,7 @@ formBuscar.addEventListener("submit", async (e) => {
     alert("Erro ao buscar produto!");
   }
 });
+
 
 formAtualizar.addEventListener("submit", async (e) => {
   e.preventDefault();
