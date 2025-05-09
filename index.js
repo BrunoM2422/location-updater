@@ -88,7 +88,7 @@ app.get("/buscar-produto/:tipo/:codigo", async (req, res) => {
     }
 
     if (tipo === "ean") {
-      const eanNormalizado = codigo.replace(/^0+/, "");
+      const eanNormalizado = codigo.replace(/^0+/, ""); // remove zeros à esquerda
       let pagina = 1;
       let encontrou = false;
 
@@ -101,6 +101,9 @@ app.get("/buscar-produto/:tipo/:codigo", async (req, res) => {
         if (!produtos.length) break;
 
         for (const prod of produtos) {
+          // Delay entre chamadas para evitar limite de requisições
+          await new Promise(r => setTimeout(r, 400));
+
           const detalhesProduto = await axios.get(`https://www.bling.com.br/Api/v3/produtos/${prod.id}`, {
             headers: { Authorization: `Bearer ${accessToken}` },
           });
@@ -120,20 +123,14 @@ app.get("/buscar-produto/:tipo/:codigo", async (req, res) => {
 
     if (!produtoResumo) return res.status(404).json({ mensagem: "Produto não encontrado." });
 
-    const produtoDetalhado = await axios.get(`https://www.bling.com.br/Api/v3/produtos/${produtoResumo.id}`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-
-    const produtoCompleto = produtoDetalhado.data?.data;
-
     res.json({
       retorno: {
         produto: {
           id: produtoResumo.id,
           nome: produtoResumo.nome,
-          localizacao: produtoCompleto.estoque?.localizacao || "",
-          imagem: produtoCompleto.midia?.imagens?.externas?.[0]?.link || null,
-          quantidade: produtoCompleto.estoque?.saldoVirtualTotal ?? 0,
+          localizacao: produtoResumo.estoque?.localizacao || "",
+          imagem: produtoResumo.midia?.imagens?.externas?.[0]?.link || null,
+          quantidade: produtoResumo.estoque?.saldoVirtualTotal ?? 0,
         },
       },
     });
@@ -142,6 +139,7 @@ app.get("/buscar-produto/:tipo/:codigo", async (req, res) => {
     res.status(500).json({ mensagem: "Erro ao buscar produto." });
   }
 });
+
 
 app.post("/atualizar-localizacao", async (req, res) => {
   const { produtoId, localizacao } = req.body;
