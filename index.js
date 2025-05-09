@@ -98,52 +98,40 @@ app.get("/buscar-produto/:tipo/:codigo", async (req, res) => {
       produtoCompleto = respDet.data?.data;
     }
     else if (tipo === "ean") {
-      const eanNorm = codigo.replace(/^0+/, "");
-      console.log("🔎 Buscando por EAN:", codigo, "→ normalizado:", eanNorm);
+  const eanNorm = codigo.replace(/^0+/, "");
+  console.log(`🔎 Buscando por EAN normalizado: ${eanNorm}`);
 
-      let pagina = 1;
-      let achou = false;
+  let pagina = 1;
+  let achou = false;
 
-      while (!achou) {
-        console.log(`📄 Buscando página ${pagina} (100 itens)`);
-        const respPage = await axios.get(
-          `https://www.bling.com.br/Api/v3/produtos?page=${pagina}&limit=100`,
+  while (!achou) {
+    const respPage = await axios.get(
+      `https://www.bling.com.br/Api/v3/produtos?page=${pagina}&limit=100`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+
+    const lista = respPage.data?.data || [];
+    if (!lista.length) break;
+
+    for (const p of lista) {
+      const gtinRoot = (p.gtin || "").replace(/^0+/, "");
+      if (gtinRoot === eanNorm) {
+        const respDet = await axios.get(
+          `https://www.bling.com.br/Api/v3/produtos/${p.id}`,
           { headers: { Authorization: `Bearer ${accessToken}` } }
         );
-        const lista = respPage.data?.data || [];
-        console.log("➡️ Página", pagina, "retornou", lista.length, "produtos");
-        if (!lista.length) break;
-
-        for (const p of lista) {
-          console.log(`  👀 Verificando produto ID=${p.id}, nome="${p.nome}"`);
-          // espera para respeitar rate limit
-          await new Promise(r => setTimeout(r, 400));
-
-          const respDet = await axios.get(
-            `https://www.bling.com.br/Api/v3/produtos/${p.id}`,
-            { headers: { Authorization: `Bearer ${accessToken}` } }
-          );
-          const det = respDet.data?.data;
-          const gtinRoot = (det.gtin || "").replace(/^0+/, "");
-          console.log(`    • GTIN oficial: "${gtinRoot}"`);
-
-          // loga também todos os campos customizados
-          const campos = det.camposCustomizados || [];
-          console.log(`    • Campos customizados:`, campos.map(f => ({ idCampo: f.idCampoCustomizado, valor: f.valor })));
-
-          if (gtinRoot === eanNorm) {
-            console.log("✅ EAN corresponde ao produto ID", p.id);
-            produtoCompleto = det;
-            achou = true;
-            break;
-          }
-        }
-
-        pagina++;
+        produtoCompleto = respDet.data?.data;
+        achou = true;
+        break;
       }
-
-      if (!produtoCompleto) throw new Error("Produto não encontrado por EAN.");
     }
+
+    pagina++;
+  }
+
+  if (!produtoCompleto) throw new Error("Produto não encontrado por EAN.");
+}
+
     else {
       return res.status(400).json({ mensagem: "Tipo inválido. Use 'sku' ou 'ean'." });
     }
