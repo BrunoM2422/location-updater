@@ -78,20 +78,29 @@ app.get("/buscar-produto/:tipo/:codigo", async (req, res) => {
   if (!accessToken) return res.status(403).json({ mensagem: "Faça login via /auth." });
 
   try {
-    let resposta;
-    let produtoResumo;
+    let produtoResumo = null;
 
-    if (tipo === "ean") {
-      resposta = await axios.get(`https://www.bling.com.br/Api/v3/produtos?gtin=${codigo}`, {
+    if (tipo === "sku") {
+      const resposta = await axios.get(`https://www.bling.com.br/Api/v3/produtos?sku=${codigo}`, {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
+
+      produtoResumo = resposta.data?.data?.[0];
+    } else if (tipo === "ean") {
+      // ⚠️ API não suporta ?gtin= corretamente, então buscamos e filtramos
+      const resposta = await axios.get(`https://www.bling.com.br/Api/v3/produtos`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+
+      const lista = resposta.data?.data || [];
+
+      // Normaliza removendo zeros à esquerda do EAN
+      const eanNormalizado = codigo.replace(/^0+/, "");
+      produtoResumo = lista.find(p => (p.gtin || "").replace(/^0+/, "") === eanNormalizado);
     } else {
-      resposta = await axios.get(`https://www.bling.com.br/Api/v3/produtos?sku=${codigo}`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
+      return res.status(400).json({ mensagem: "Tipo inválido. Use 'sku' ou 'ean'." });
     }
 
-    produtoResumo = resposta.data?.data?.[0];
     if (!produtoResumo) throw new Error("Produto não encontrado.");
 
     const detalhes = await axios.get(`https://www.bling.com.br/Api/v3/produtos/${produtoResumo.id}`, {
@@ -120,6 +129,7 @@ app.get("/buscar-produto/:tipo/:codigo", async (req, res) => {
     res.status(404).json({ mensagem: "Produto não encontrado." });
   }
 });
+
 
 
 app.post("/atualizar-localizacao", async (req, res) => {
