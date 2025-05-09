@@ -97,58 +97,63 @@ app.get("/buscar-produto/:tipo/:codigo", async (req, res) => {
       produtoCompleto = respDet.data?.data;
     }
     else if (tipo === "ean") {
-      const eanNorm = codigo.replace(/^0+/, "");
-      let pagina = 1;
-      let encontrado = null;
+  const eanNorm = codigo.replace(/^0+/, "");
+  let pagina = 1;
+  let encontrado = null;
+  let achou = false;
 
-      while (!encontrado) {
-        const respPage = await axios.get(
-          `https://www.bling.com.br/Api/v3/produtos?page=${pagina}&limit=100`,
-          { headers: { Authorization: `Bearer ${accessToken}` } }
-        );
+  while (!achou) {
+    const respPage = await axios.get(
+      `https://www.bling.com.br/Api/v3/produtos?page=${pagina}&limit=100`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
 
-        const lista = respPage.data?.data || [];
-        if (lista.length === 0) break;
+    const lista = respPage.data?.data || [];
+    if (lista.length === 0) break;
 
-        for (const item of lista) {
-          await sleep(350);
-          const produtoResp = await axios.get(
-            `https://www.bling.com.br/Api/v3/produtos/${item.id}`,
-            { headers: { Authorization: `Bearer ${accessToken}` } }
-          );
+    for (const item of lista) {
+      await sleep(350);
+      const produtoResp = await axios.get(
+        `https://www.bling.com.br/Api/v3/produtos/${item.id}`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
 
-          const produto = produtoResp.data?.data;
+      const produto = produtoResp.data?.data;
 
-          if (produto.gtin?.replace(/^0+/, "") === eanNorm) {
-            encontrado = produto;
-            break;
-          }
-
-          if (produto.variacoes?.length) {
-            const variacao = produto.variacoes.find(v => v.gtin?.replace(/^0+/, "") === eanNorm);
-            if (variacao) {
-              produto.variacaoEncontrada = variacao;
-              encontrado = produto;
-              break;
-            }
-          }
-
-          if (produto.itens?.length) {
-            const itemKit = produto.itens.find(i => i.gtin?.replace(/^0+/, "") === eanNorm);
-            if (itemKit) {
-              produto.itemKitEncontrado = itemKit;
-              encontrado = produto;
-              break;
-            }
-          }
-        }
-
-        pagina++;
+      if (produto.gtin?.replace(/^0+/, "") === eanNorm) {
+        encontrado = produto;
+        achou = true;
+        break;
       }
 
-      if (!encontrado) throw new Error("Produto com esse EAN não encontrado.");
-      produtoCompleto = encontrado;
+      if (produto.variacoes?.length) {
+        const variacao = produto.variacoes.find(v => v.gtin?.replace(/^0+/, "") === eanNorm);
+        if (variacao) {
+          produto.variacaoEncontrada = variacao;
+          encontrado = produto;
+          achou = true;
+          break;
+        }
+      }
+
+      if (produto.itens?.length) {
+        const itemKit = produto.itens.find(i => i.gtin?.replace(/^0+/, "") === eanNorm);
+        if (itemKit) {
+          produto.itemKitEncontrado = itemKit;
+          encontrado = produto;
+          achou = true;
+          break;
+        }
+      }
     }
+
+    pagina++;
+  }
+
+  if (!encontrado) throw new Error("Produto com esse EAN não encontrado.");
+  produtoCompleto = encontrado;
+}
+
     else {
       return res.status(400).json({ mensagem: "Tipo inválido. Use 'sku' ou 'ean'." });
     }
