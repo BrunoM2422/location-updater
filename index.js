@@ -83,13 +83,14 @@ app.get("/buscar-produto/:tipo/:codigo", async (req, res) => {
     let produtoCompleto = null;
 
     if (tipo === "sku") {
-      // Busca por SKU
+      console.log("🔎 Buscando por SKU:", codigo);
       const respSku = await axios.get(
         `https://www.bling.com.br/Api/v3/produtos?sku=${codigo}`,
         { headers: { Authorization: `Bearer ${accessToken}` } }
       );
+      console.log("➡️ SKU retornou", respSku.data?.data?.length, "produtos");
       const resumo = respSku.data?.data?.[0];
-      if (!resumo) throw new Error("Produto não encontrado.");
+      if (!resumo) throw new Error("Produto não encontrado por SKU.");
       const respDet = await axios.get(
         `https://www.bling.com.br/Api/v3/produtos/${resumo.id}`,
         { headers: { Authorization: `Bearer ${accessToken}` } }
@@ -97,21 +98,25 @@ app.get("/buscar-produto/:tipo/:codigo", async (req, res) => {
       produtoCompleto = respDet.data?.data;
     }
     else if (tipo === "ean") {
-      // Busca paginada por EAN com limit=100
       const eanNorm = codigo.replace(/^0+/, "");
+      console.log("🔎 Buscando por EAN:", codigo, "→ normalizado:", eanNorm);
+
       let pagina = 1;
       let achou = false;
 
       while (!achou) {
+        console.log(`📄 Buscando página ${pagina} (100 itens)`);
         const respPage = await axios.get(
           `https://www.bling.com.br/Api/v3/produtos?page=${pagina}&limit=100`,
           { headers: { Authorization: `Bearer ${accessToken}` } }
         );
         const lista = respPage.data?.data || [];
+        console.log("➡️ Página", pagina, "retornou", lista.length, "produtos");
         if (!lista.length) break;
 
         for (const p of lista) {
-          // pequeno delay para não estourar rate-limit
+          console.log(`  👀 Verificando produto ID=${p.id}, nome="${p.nome}"`);
+          // espera para respeitar rate limit
           await new Promise(r => setTimeout(r, 400));
 
           const respDet = await axios.get(
@@ -119,18 +124,15 @@ app.get("/buscar-produto/:tipo/:codigo", async (req, res) => {
             { headers: { Authorization: `Bearer ${accessToken}` } }
           );
           const det = respDet.data?.data;
-
-          // 1) verifica campo oficial gtin
           const gtinRoot = (det.gtin || "").replace(/^0+/, "");
-          if (gtinRoot === eanNorm) {
-            produtoCompleto = det;
-            achou = true;
-            break;
-          }
+          console.log(`    • GTIN oficial: "${gtinRoot}"`);
 
-          // 2) verifica em campos customizados
+          // loga também todos os campos customizados
           const campos = det.camposCustomizados || [];
-          if (campos.find(f => (f.valor || "").replace(/^0+/, "") === eanNorm)) {
+          console.log(`    • Campos customizados:`, campos.map(f => ({ idCampo: f.idCampoCustomizado, valor: f.valor })));
+
+          if (gtinRoot === eanNorm) {
+            console.log("✅ EAN corresponde ao produto ID", p.id);
             produtoCompleto = det;
             achou = true;
             break;
@@ -140,13 +142,13 @@ app.get("/buscar-produto/:tipo/:codigo", async (req, res) => {
         pagina++;
       }
 
-      if (!produtoCompleto) throw new Error("Produto não encontrado.");
+      if (!produtoCompleto) throw new Error("Produto não encontrado por EAN.");
     }
     else {
       return res.status(400).json({ mensagem: "Tipo inválido. Use 'sku' ou 'ean'." });
     }
 
-    // Resposta final
+    // Responde
     res.json({
       retorno: {
         produto: {
@@ -163,10 +165,6 @@ app.get("/buscar-produto/:tipo/:codigo", async (req, res) => {
     res.status(404).json({ mensagem: "Produto não encontrado." });
   }
 });
-
-
-
-
 
 
 app.post("/atualizar-localizacao", async (req, res) => {
