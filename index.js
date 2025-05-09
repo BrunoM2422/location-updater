@@ -87,16 +87,30 @@ app.get("/buscar-produto/:tipo/:codigo", async (req, res) => {
 
       produtoResumo = resposta.data?.data?.[0];
     } else if (tipo === "ean") {
-      // ⚠️ API não suporta ?gtin= corretamente, então buscamos e filtramos
-      const resposta = await axios.get(`https://www.bling.com.br/Api/v3/produtos`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-
-      const lista = resposta.data?.data || [];
-
-      // Normaliza removendo zeros à esquerda do EAN
       const eanNormalizado = codigo.replace(/^0+/, "");
-      produtoResumo = lista.find(p => (p.gtin || "").replace(/^0+/, "") === eanNormalizado);
+      let pagina = 1;
+      let encontrou = false;
+
+      while (!encontrou) {
+        const resposta = await axios.get(`https://www.bling.com.br/Api/v3/produtos?page=${pagina}`, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+
+        const lista = resposta.data?.data || [];
+
+        if (!lista.length) break;
+
+        for (const p of lista) {
+          const gtinProduto = (p.gtin || "").replace(/^0+/, "");
+          if (gtinProduto === eanNormalizado) {
+            produtoResumo = p;
+            encontrou = true;
+            break;
+          }
+        }
+
+        pagina++;
+      }
     } else {
       return res.status(400).json({ mensagem: "Tipo inválido. Use 'sku' ou 'ean'." });
     }
@@ -129,6 +143,7 @@ app.get("/buscar-produto/:tipo/:codigo", async (req, res) => {
     res.status(404).json({ mensagem: "Produto não encontrado." });
   }
 });
+
 
 
 
