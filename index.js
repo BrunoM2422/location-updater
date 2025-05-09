@@ -101,17 +101,9 @@ app.get("/buscar-produto/:tipo/:codigo", async (req, res) => {
         if (!produtos.length) break;
 
         for (const prod of produtos) {
-          // Delay entre chamadas para evitar limite de requisições
-          await new Promise(r => setTimeout(r, 400));
-
-          const detalhesProduto = await axios.get(`https://www.bling.com.br/Api/v3/produtos/${prod.id}`, {
-            headers: { Authorization: `Bearer ${accessToken}` },
-          });
-
-          const eanDoProduto = (detalhesProduto.data?.data?.gtin || "").replace(/^0+/, "");
-
-          if (eanDoProduto === eanNormalizado) {
-            produtoResumo = detalhesProduto.data?.data;
+          const gtinProduto = (prod.gtin || "").replace(/^0+/, "");
+          if (gtinProduto === eanNormalizado) {
+            produtoResumo = prod;
             encontrou = true;
             break;
           }
@@ -123,14 +115,20 @@ app.get("/buscar-produto/:tipo/:codigo", async (req, res) => {
 
     if (!produtoResumo) return res.status(404).json({ mensagem: "Produto não encontrado." });
 
+    const detalhes = await axios.get(`https://www.bling.com.br/Api/v3/produtos/${produtoResumo.id}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    const produtoCompleto = detalhes.data?.data;
+
     res.json({
       retorno: {
         produto: {
           id: produtoResumo.id,
           nome: produtoResumo.nome,
-          localizacao: produtoResumo.estoque?.localizacao || "",
-          imagem: produtoResumo.midia?.imagens?.externas?.[0]?.link || null,
-          quantidade: produtoResumo.estoque?.saldoVirtualTotal ?? 0,
+          localizacao: produtoCompleto.estoque?.localizacao || "",
+          imagem: produtoCompleto.midia?.imagens?.externas?.[0]?.link || null,
+          quantidade: produtoCompleto.estoque?.saldoVirtualTotal ?? 0,
         },
       },
     });
@@ -139,6 +137,9 @@ app.get("/buscar-produto/:tipo/:codigo", async (req, res) => {
     res.status(500).json({ mensagem: "Erro ao buscar produto." });
   }
 });
+
+
+
 
 
 app.post("/atualizar-localizacao", async (req, res) => {
