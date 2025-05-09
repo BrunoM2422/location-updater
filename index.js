@@ -97,40 +97,65 @@ app.get("/buscar-produto/:tipo/:codigo", async (req, res) => {
       );
       produtoCompleto = respDet.data?.data;
     }
-    else if (tipo === "ean") {
+else if (tipo === "ean") {
   const eanNorm = codigo.replace(/^0+/, "");
   console.log(`🔎 Buscando por EAN normalizado: ${eanNorm}`);
 
   let pagina = 1;
-  let achou = false;
+  let encontrado = null;
 
-  while (!achou) {
+  while (!encontrado) {
     const respPage = await axios.get(
       `https://www.bling.com.br/Api/v3/produtos?page=${pagina}&limit=100`,
       { headers: { Authorization: `Bearer ${accessToken}` } }
     );
 
     const lista = respPage.data?.data || [];
-    if (!lista.length) break;
+    if (lista.length === 0) break;
 
-    for (const p of lista) {
-      const gtinRoot = (p.gtin || "").replace(/^0+/, "");
-      if (gtinRoot === eanNorm) {
-        const respDet = await axios.get(
-          `https://www.bling.com.br/Api/v3/produtos/${p.id}`,
-          { headers: { Authorization: `Bearer ${accessToken}` } }
-        );
-        produtoCompleto = respDet.data?.data;
-        achou = true;
+    for (const item of lista) {
+      const produtoResp = await axios.get(
+        `https://www.bling.com.br/Api/v3/produtos/${item.id}`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      const produto = produtoResp.data?.data;
+
+      // Produto simples
+      if (produto.gtin?.replace(/^0+/, "") === eanNorm) {
+        encontrado = produto;
         break;
+      }
+
+      // Variações
+      if (produto.variacoes?.length) {
+        const variacao = produto.variacoes.find(v => v.gtin?.replace(/^0+/, "") === eanNorm);
+        if (variacao) {
+          // Anexa a variação ao produto principal
+          produto.variacaoEncontrada = variacao;
+          encontrado = produto;
+          break;
+        }
+      }
+
+      // Kits
+      if (produto.itens?.length) {
+        const itemKit = produto.itens.find(i => i.gtin?.replace(/^0+/, "") === eanNorm);
+        if (itemKit) {
+          produto.itemKitEncontrado = itemKit;
+          encontrado = produto;
+          break;
+        }
       }
     }
 
     pagina++;
   }
 
-  if (!produtoCompleto) throw new Error("Produto não encontrado por EAN.");
+  if (!encontrado) throw new Error("Produto com esse EAN não encontrado.");
+
+  produtoCompleto = encontrado;
 }
+
 
     else {
       return res.status(400).json({ mensagem: "Tipo inválido. Use 'sku' ou 'ean'." });
