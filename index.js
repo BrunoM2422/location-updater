@@ -17,6 +17,8 @@ let logado = false;
 const USUARIO = "msestoque@magisol";
 const SENHA = "msestoque@2025";
 
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
 app.get("/", (req, res) => {
   if (!logado) return res.redirect("/login");
   res.sendFile(path.join(__dirname, "public", "index.html"));
@@ -65,7 +67,6 @@ app.get("/callback", async (req, res) => {
     );
 
     accessToken = resposta.data.access_token;
-    console.log("✅ Token recebido!");
     res.redirect("/login");
   } catch (erro) {
     console.error("❌ Erro ao obter token:", erro.response?.data || erro.message);
@@ -83,12 +84,10 @@ app.get("/buscar-produto/:tipo/:codigo", async (req, res) => {
     let produtoCompleto = null;
 
     if (tipo === "sku") {
-      console.log("🔎 Buscando por SKU:", codigo);
       const respSku = await axios.get(
         `https://www.bling.com.br/Api/v3/produtos?sku=${codigo}`,
         { headers: { Authorization: `Bearer ${accessToken}` } }
       );
-      console.log("➡️ SKU retornou", respSku.data?.data?.length, "produtos");
       const resumo = respSku.data?.data?.[0];
       if (!resumo) throw new Error("Produto não encontrado por SKU.");
       const respDet = await axios.get(
@@ -97,74 +96,63 @@ app.get("/buscar-produto/:tipo/:codigo", async (req, res) => {
       );
       produtoCompleto = respDet.data?.data;
     }
-else if (tipo === "ean") {
-  const eanNorm = codigo.replace(/^0+/, "");
-  console.log(`🔎 Buscando por EAN normalizado: ${eanNorm}`);
+    else if (tipo === "ean") {
+      const eanNorm = codigo.replace(/^0+/, "");
+      let pagina = 1;
+      let encontrado = null;
 
-  let pagina = 1;
-  let encontrado = null;
+      while (!encontrado) {
+        const respPage = await axios.get(
+          `https://www.bling.com.br/Api/v3/produtos?page=${pagina}&limit=100`,
+          { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
 
-  while (!encontrado) {
-    const respPage = await axios.get(
-      `https://www.bling.com.br/Api/v3/produtos?page=${pagina}&limit=100`,
-      { headers: { Authorization: `Bearer ${accessToken}` } }
-    );
+        const lista = respPage.data?.data || [];
+        if (lista.length === 0) break;
 
-    const lista = respPage.data?.data || [];
-    if (lista.length === 0) break;
+        for (const item of lista) {
+          await sleep(350);
+          const produtoResp = await axios.get(
+            `https://www.bling.com.br/Api/v3/produtos/${item.id}`,
+            { headers: { Authorization: `Bearer ${accessToken}` } }
+          );
 
-    for (const item of lista) {
-  await sleep(350); // evita o erro de TOO_MANY_REQUESTS
+          const produto = produtoResp.data?.data;
 
-  const produtoResp = await axios.get(
-    `https://www.bling.com.br/Api/v3/produtos/${item.id}`,
-    { headers: { Authorization: `Bearer ${accessToken}` } }
-  );
+          if (produto.gtin?.replace(/^0+/, "") === eanNorm) {
+            encontrado = produto;
+            break;
+          }
 
-  const produto = produtoResp.data?.data;
+          if (produto.variacoes?.length) {
+            const variacao = produto.variacoes.find(v => v.gtin?.replace(/^0+/, "") === eanNorm);
+            if (variacao) {
+              produto.variacaoEncontrada = variacao;
+              encontrado = produto;
+              break;
+            }
+          }
 
-      // Produto simples
-      if (produto.gtin?.replace(/^0+/, "") === eanNorm) {
-        encontrado = produto;
-        break;
-      }
-
-      // Variações
-      if (produto.variacoes?.length) {
-        const variacao = produto.variacoes.find(v => v.gtin?.replace(/^0+/, "") === eanNorm);
-        if (variacao) {
-          // Anexa a variação ao produto principal
-          produto.variacaoEncontrada = variacao;
-          encontrado = produto;
-          break;
+          if (produto.itens?.length) {
+            const itemKit = produto.itens.find(i => i.gtin?.replace(/^0+/, "") === eanNorm);
+            if (itemKit) {
+              produto.itemKitEncontrado = itemKit;
+              encontrado = produto;
+              break;
+            }
+          }
         }
+
+        pagina++;
       }
 
-      // Kits
-      if (produto.itens?.length) {
-        const itemKit = produto.itens.find(i => i.gtin?.replace(/^0+/, "") === eanNorm);
-        if (itemKit) {
-          produto.itemKitEncontrado = itemKit;
-          encontrado = produto;
-          break;
-        }
-      }
+      if (!encontrado) throw new Error("Produto com esse EAN não encontrado.");
+      produtoCompleto = encontrado;
     }
-
-    pagina++;
-  }
-
-  if (!encontrado) throw new Error("Produto com esse EAN não encontrado.");
-
-  produtoCompleto = encontrado;
-}
-
-
     else {
       return res.status(400).json({ mensagem: "Tipo inválido. Use 'sku' ou 'ean'." });
     }
 
-    // Responde
     res.json({
       retorno: {
         produto: {
@@ -182,7 +170,6 @@ else if (tipo === "ean") {
   }
 });
 
-
 app.post("/atualizar-localizacao", async (req, res) => {
   const { produtoId, localizacao } = req.body;
 
@@ -195,7 +182,6 @@ app.post("/atualizar-localizacao", async (req, res) => {
   }
 
   try {
-    // 1) Busca o produto completo
     const resp = await axios.get(
       `https://www.bling.com.br/Api/v3/produtos/${produtoId}`,
       {
@@ -209,11 +195,11 @@ app.post("/atualizar-localizacao", async (req, res) => {
     }
 
     const {
-      camposCustomizados, // <-- provável vilão
-      info,               // <-- metadados internos do Bling
+      camposCustomizados,
+      info,
       ...dadosLimpos
     } = produtoAtual;
-    
+
     const payload = {
       ...dadosLimpos,
       estoque: {
@@ -221,9 +207,7 @@ app.post("/atualizar-localizacao", async (req, res) => {
         localizacao
       }
     };
-    
 
-    // 3) Atualiza o produto com o corpo completo preservado
     await axios.put(
       `https://www.bling.com.br/Api/v3/produtos/${produtoId}`,
       payload,
@@ -251,8 +235,6 @@ app.post("/atualizar-localizacao", async (req, res) => {
     });
   }
 });
-
-
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`✅ Servidor rodando na porta ${PORT}`));
