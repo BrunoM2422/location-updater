@@ -84,26 +84,26 @@ app.get("/buscar-produto/:tipo/:codigo", async (req, res) => {
       const resposta = await axios.get(`https://www.bling.com.br/Api/v3/produtos?sku=${codigo}`, {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
-
       produtoResumo = resposta.data?.data?.[0];
-    } else if (tipo === "ean") {
-      const eanNormalizado = codigo.replace(/^0+/, "");
+    }
+
+    if (tipo === "ean") {
+      const eanNormalizado = codigo.replace(/^0+/, ""); // remove zeros à esquerda
       let pagina = 1;
       let encontrou = false;
 
       while (!encontrou) {
-        const resposta = await axios.get(`https://www.bling.com.br/Api/v3/produtos?page=${pagina}`, {
+        const resposta = await axios.get(`https://www.bling.com.br/Api/v3/produtos?page=${pagina}&limit=50`, {
           headers: { Authorization: `Bearer ${accessToken}` },
         });
 
-        const lista = resposta.data?.data || [];
+        const produtos = resposta.data?.data || [];
+        if (!produtos.length) break;
 
-        if (!lista.length) break;
-
-        for (const p of lista) {
-          const gtinProduto = (p.gtin || "").replace(/^0+/, "");
+        for (const prod of produtos) {
+          const gtinProduto = (prod.gtin || "").replace(/^0+/, "");
           if (gtinProduto === eanNormalizado) {
-            produtoResumo = p;
+            produtoResumo = prod;
             encontrou = true;
             break;
           }
@@ -111,11 +111,9 @@ app.get("/buscar-produto/:tipo/:codigo", async (req, res) => {
 
         pagina++;
       }
-    } else {
-      return res.status(400).json({ mensagem: "Tipo inválido. Use 'sku' ou 'ean'." });
     }
 
-    if (!produtoResumo) throw new Error("Produto não encontrado.");
+    if (!produtoResumo) return res.status(404).json({ mensagem: "Produto não encontrado." });
 
     const detalhes = await axios.get(`https://www.bling.com.br/Api/v3/produtos/${produtoResumo.id}`, {
       headers: { Authorization: `Bearer ${accessToken}` },
@@ -123,26 +121,23 @@ app.get("/buscar-produto/:tipo/:codigo", async (req, res) => {
 
     const produtoCompleto = detalhes.data?.data;
 
-    const localizacao = produtoCompleto.estoque?.localizacao || "";
-    const primeiraImagem = produtoCompleto.midia?.imagens?.externas?.[0]?.link || null;
-    const quantidadeEstoque = produtoCompleto.estoque?.saldoVirtualTotal ?? 0;
-
     res.json({
       retorno: {
         produto: {
           id: produtoResumo.id,
           nome: produtoResumo.nome,
-          localizacao,
-          imagem: primeiraImagem,
-          quantidade: quantidadeEstoque,
+          localizacao: produtoCompleto.estoque?.localizacao || "",
+          imagem: produtoCompleto.midia?.imagens?.externas?.[0]?.link || null,
+          quantidade: produtoCompleto.estoque?.saldoVirtualTotal ?? 0,
         },
       },
     });
   } catch (erro) {
     console.error("❌ Erro ao buscar produto:", erro.response?.data || erro.message);
-    res.status(404).json({ mensagem: "Produto não encontrado." });
+    res.status(500).json({ mensagem: "Erro ao buscar produto." });
   }
 });
+
 
 
 
