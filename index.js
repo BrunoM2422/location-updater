@@ -114,11 +114,14 @@ else if (tipo === "ean") {
     if (lista.length === 0) break;
 
     for (const item of lista) {
-      const produtoResp = await axios.get(
-        `https://www.bling.com.br/Api/v3/produtos/${item.id}`,
-        { headers: { Authorization: `Bearer ${accessToken}` } }
-      );
-      const produto = produtoResp.data?.data;
+  await sleep(350); // evita o erro de TOO_MANY_REQUESTS
+
+  const produtoResp = await axios.get(
+    `https://www.bling.com.br/Api/v3/produtos/${item.id}`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+
+  const produto = produtoResp.data?.data;
 
       // Produto simples
       if (produto.gtin?.replace(/^0+/, "") === eanNorm) {
