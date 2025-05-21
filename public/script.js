@@ -1,4 +1,4 @@
-const apiBaseUrl = "https://location-updater.onrender.com";
+const apiBaseUrl = "";
 
 const formBuscar = document.getElementById("form-buscar");
 const formAtualizar = document.getElementById("form-atualizar");
@@ -17,33 +17,18 @@ formBuscar.addEventListener("submit", async (e) => {
     const resposta = await fetch(`${apiBaseUrl}/buscar-produto/${tipo}/${codigo}`);
     const dados = await resposta.json();
 
-    console.log("📦 Dados recebidos:", dados);
-
     const produto = dados.retorno.produto;
-    produtoId = produto.id;
 
     document.getElementById("info-produto").style.display = "block";
     document.getElementById("nome-produto").innerText = produto.nome;
     document.getElementById("localizacao-atual").innerText = produto.localizacao?.trim() || "(vazio)";
     document.getElementById("quantidade-produto").innerText = produto.quantidade ?? "(indisponível)";
-    document.getElementById("localizacao").value = "";
 
     const imagemEl = document.getElementById("imagem-produto");
-    imagemEl.alt = "Imagem do Produto";
 
-    const midia = produto.midia?.imagens || {};
-    let imagemUrl = "";
-
-    if (midia.externas?.length > 0) {
-      imagemUrl = midia.externas[0].url || midia.externas[0].urlImagem;
-    } else if (midia.internas?.length > 0) {
-      imagemUrl = midia.internas[0].link;
-    } else if (midia.anexos?.length > 0) {
-      imagemUrl = `${apiBaseUrl}/imagem-produto/${produto.id}/${midia.anexos[0].id}`;
-    }
-
-    if (imagemUrl) {
-      imagemEl.src = imagemUrl;
+    if (produto.imagem && produto.imagem.startsWith("http")) {
+      imagemEl.src = produto.imagem;
+      imagemEl.alt = "Imagem do Produto";
       imagemEl.style.display = "block";
     } else {
       imagemEl.src = "";
@@ -51,11 +36,13 @@ formBuscar.addEventListener("submit", async (e) => {
       imagemEl.style.display = "none";
     }
 
+    produtoId = produto.id;
   } catch (erro) {
-    console.error("❌ Erro ao buscar produto:", erro);
+    console.error(erro);
     alert("Erro ao buscar produto!");
   }
 });
+
 
 formAtualizar.addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -80,7 +67,7 @@ formAtualizar.addEventListener("submit", async (e) => {
     document.getElementById("mensagem").innerText = dados.mensagem;
     document.getElementById("localizacao-atual").innerText = localizacao;
   } catch (erro) {
-    console.error("❌ Erro ao atualizar localização:", erro);
+    console.error(erro);
     alert("Erro ao atualizar localização!");
   }
 });
