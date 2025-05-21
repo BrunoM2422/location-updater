@@ -65,10 +65,12 @@
       margin: 8px 0;
     }
 
+    /* Layout Flexível */
     .flex-row {
       display: flex;
       gap: 10px;
       flex-wrap: wrap;
+      margin-bottom: 10px;
     }
 
     .flex-row > * {
@@ -93,6 +95,7 @@
   <div class="container">
     <h1>Atualizar Localização de Produto</h1>
 
+    <!-- Formulário de Busca lado a lado -->
     <form id="form-buscar" class="flex-row">
       <select id="tipo-codigo" required>
         <option value="sku">Buscar por SKU</option>
@@ -103,6 +106,7 @@
       <button type="submit">Buscar</button>
     </form>
 
+    <!-- Informações do Produto -->
     <div id="info-produto" style="display:none;">
       <h2 id="nome-produto" style="text-align: center; margin-bottom: 10px;"></h2>
 
@@ -113,6 +117,7 @@
           <p><strong>Quantidade em estoque:</strong> <span id="quantidade-produto"></span></p>
           <p><strong>Localização atual:</strong> <span id="localizacao-atual"></span></p>
 
+          <!-- Atualização da Localização lado a lado -->
           <form id="form-atualizar" class="flex-row">
             <input type="text" id="localizacao" placeholder="Nova Localização" required>
             <button type="submit">Atualizar</button>
